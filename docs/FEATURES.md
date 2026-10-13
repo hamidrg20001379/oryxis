@@ -913,6 +913,7 @@ the app's own actions sit on `Ctrl+Shift`.
 | `Alt+Left` / `Alt+Right` | Cycle tabs |
 | `Ctrl+1...9` | Switch to tab 1-9 |
 | `Ctrl+Shift+C` / `Ctrl+Shift+V` | Copy / paste in the terminal |
+| `Ctrl+Alt+A` / `Ctrl+Alt+S` | Copy the last command + output / copy its screen |
 | `Ctrl+Shift+W` | Close tab |
 | `Ctrl+Shift+Y` | Reopen the last closed tab |
 | `Ctrl+Shift+R` | Reconnect the active tab |
@@ -934,7 +935,5 @@ the app's own actions sit on `Ctrl+Shift`.
 Some verbs ship with no chord at all and wait in Settings > Shortcuts
 for one: move the tab to a new window, duplicate it in a new window,
 rename or pin it, copy its host address, close the other tabs or all of
-them, copy the pane's whole buffer or its screen, clear its scrollback,
-and lock the vault. No terminal or browser agrees on a key for any of
-these, so the choice is yours; the command palette lists them either
-way.
+them, and lock the vault. The command palette
+lists them either way.

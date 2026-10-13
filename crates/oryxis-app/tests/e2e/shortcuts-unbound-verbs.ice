@@ -1,8 +1,8 @@
 viewport: 1200x750
 mode: Zen
 -----
-# Settings > Shortcuts: the menu verbs that ship with NO factory chord
-# ("Move tab to new window" and its ten siblings, `ships_unbound`) are
+# Settings > Shortcuts: the menu verbs that still ship with NO factory chord
+# ("Move tab to new window" and its eight siblings, `ships_unbound`) are
 # rows whose only chip reads "(unbound)". This pins the row's whole
 # life for the one the owner asked for:
 #
@@ -38,7 +38,7 @@ expect "Pin / unpin tab"
 expect "Copy host address"
 expect "Close Other Tabs"
 expect "Close All Tabs"
-expect "Copy All"
+expect "Copy Last Command + Output"
 expect "Copy Screen"
 expect "Clear Scrollback"
 expect "Lock Vault"
