@@ -265,6 +265,10 @@ coming next, see the [Roadmap](../README.md#roadmap).
   feeds the tray submenu and the Windows JumpList.
 - **Copy Screen.** The terminal's context menu (or the tab menu, under
   the other right-click schemes) copies the screen exactly as drawn.
+- **Copy Last Command + Output.** On a shell that marks its commands
+  (OSC 133), the last command line and everything it printed, whole and
+  without the next prompt, from the command palette or a key of your
+  choice in Settings > Shortcuts.
 - **Save Output As.** The same menus take the pane's whole buffer,
   scrollback included, to the clipboard or to a text file, the way
   Terminal.app's Export Text and Konsole's Save Output do; the text is
@@ -947,7 +951,8 @@ JSON file.
 Some verbs ship with no chord at all and wait in Settings > Shortcuts
 for one: move the tab to a new window, duplicate it in a new window,
 rename or pin it, copy its host address, close the other tabs or all of
-them, save the pane's output or copy its screen, clear its scrollback,
+them, save the pane's output, copy its screen or its last command with
+its output, clear its scrollback,
 and lock the vault. No terminal or browser agrees on a key for any of
 these, so the choice is yours; the command palette lists them either
 way.

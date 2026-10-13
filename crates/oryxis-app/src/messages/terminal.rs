@@ -243,6 +243,9 @@ pub enum TerminalMessage {
     /// Copy only the pane's displayed viewport, scroll position included and
     /// off-screen history excluded (context-menu "Copy Screen"). `pane_id`.
     TerminalCopyScreen(Uuid),
+    /// Copy the last command the pane's shell ran, with its output, as
+    /// the shell marked them (OSC 133). `pane_id`.
+    TerminalCopyLastCommand(Uuid),
     /// Drop a pane's scrollback history (context-menu "Clear
     /// Scrollback"). `pane_id`.
     TerminalClearScrollback(Uuid),

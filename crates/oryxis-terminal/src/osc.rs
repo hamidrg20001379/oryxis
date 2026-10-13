@@ -315,6 +315,12 @@ impl OscSniffer {
     /// together with the marks: a mark whose text was already drained (or
     /// dropped by the arena cap) resolves to nothing, never to another
     /// command.
+    /// The command line an `E` mark of this batch carries, before the
+    /// batch's lines are drained.
+    pub(crate) fn command_line(&self, id: u32) -> Option<&str> {
+        self.command_lines.iter().find(|(i, _)| *i == id).map(|(_, t)| t.as_str())
+    }
+
     pub fn take_command_lines(&mut self) -> Vec<(u32, String)> {
         std::mem::take(&mut self.command_lines)
     }

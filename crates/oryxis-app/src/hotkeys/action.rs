@@ -184,6 +184,10 @@ pub enum HotkeyAction {
     TerminalSaveOutput,
     /// Copy the focused pane's displayed screen only.
     TerminalCopyScreen,
+    /// Copy the last command the focused pane's shell ran, with its
+    /// output, as the shell marked them (OSC 133). Unbound out of the box
+    /// like the other pane copy verbs.
+    TerminalCopyLastCommand,
     /// Drop the focused pane's scrollback.
     TerminalClearScrollback,
     /// Open the focused pane's context menu, anchored at the text
@@ -267,6 +271,7 @@ impl HotkeyAction {
             ScrollbackPageDown,
             TerminalSaveOutput,
             TerminalCopyScreen,
+            TerminalCopyLastCommand,
             TerminalClearScrollback,
             TerminalContextMenu,
             VaultSectionSlot,
@@ -339,6 +344,7 @@ impl HotkeyAction {
             CloseAllTabs => "close_all_tabs",
             TerminalSaveOutput => "terminal_save_output",
             TerminalCopyScreen => "terminal_copy_screen",
+            TerminalCopyLastCommand => "terminal_copy_last_command",
             TerminalClearScrollback => "terminal_clear_scrollback",
             TerminalContextMenu => "terminal_context_menu",
             LockVault => "lock_vault",
@@ -423,6 +429,7 @@ impl HotkeyAction {
             CloseAllTabs => "close_all_tabs",
             TerminalSaveOutput => "terminal_save_output",
             TerminalCopyScreen => "terminal_copy_screen",
+            TerminalCopyLastCommand => "terminal_copy_last_command",
             TerminalClearScrollback => "terminal_clear_scrollback",
             TerminalContextMenu => "hotkey_terminal_context_menu",
             LockVault => "lock_vault",
@@ -450,6 +457,7 @@ impl HotkeyAction {
                 | CloseAllTabs
                 | TerminalSaveOutput
                 | TerminalCopyScreen
+                | TerminalCopyLastCommand
                 | TerminalClearScrollback
                 | LockVault
         )
@@ -487,6 +495,7 @@ impl HotkeyAction {
                 | CopyTabAddress
                 | TerminalSaveOutput
                 | TerminalCopyScreen
+                | TerminalCopyLastCommand
                 | TerminalClearScrollback
                 | TerminalContextMenu
         )

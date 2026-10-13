@@ -997,6 +997,28 @@ impl Oryxis {
                     return self.update(Message::CopyToClipboard(text));
                 }
             }
+            TerminalMessage::TerminalCopyLastCommand(pane_id) => {
+                self.overlay = None;
+                use oryxis_terminal::LastCommandUnavailable as Why;
+                // Read under the lock, copied after it: the clipboard write
+                // resolves through the runtime and toasts on its own.
+                let read = self.pane_by_id(pane_id).map(|pane| match pane.terminal.lock() {
+                    Ok(state) => state.last_command(),
+                    Err(_) => Err(Why::NoneSeen),
+                });
+                return match read {
+                    Some(Ok(last)) => self.update(Message::CopyToClipboard(last.to_text())),
+                    Some(Err(why)) => self.show_toast(
+                        crate::i18n::t(match why {
+                            Why::NoneSeen => "terminal_last_command_none",
+                            Why::AlternateScreen => "terminal_last_command_alt_screen",
+                            Why::Gone => "terminal_last_command_gone",
+                        })
+                        .to_string(),
+                    ),
+                    None => Task::none(),
+                };
+            }
             TerminalMessage::TerminalClearScrollback(pane_id) => {
                 self.overlay = None;
                 if let Some(pane) = self.pane_by_id(pane_id)

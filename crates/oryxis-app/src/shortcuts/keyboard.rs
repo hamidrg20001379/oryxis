@@ -819,7 +819,7 @@ impl Oryxis {
             CloseAllTabs => Task::done(Message::Tabs(TabsMessage::CloseAllTabs)),
             // Pane-scoped, like `MovePaneToNewTab`: the message names a
             // PANE, resolved to the focused one here.
-            TerminalSaveOutput | TerminalCopyScreen | TerminalClearScrollback => {
+            TerminalSaveOutput | TerminalCopyScreen | TerminalCopyLastCommand | TerminalClearScrollback => {
                 let pane_id = self
                     .cur_active_tab()
                     .and_then(|i| self.tabs.get(i))
@@ -828,6 +828,7 @@ impl Oryxis {
                     Some(pane_id) => Task::done(Message::Terminal(match action {
                         TerminalSaveOutput => TerminalMessage::TerminalSaveOutput(pane_id),
                         TerminalCopyScreen => TerminalMessage::TerminalCopyScreen(pane_id),
+                        TerminalCopyLastCommand => TerminalMessage::TerminalCopyLastCommand(pane_id),
                         _ => TerminalMessage::TerminalClearScrollback(pane_id),
                     })),
                     None => Task::none(),

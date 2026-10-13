@@ -2,6 +2,7 @@ pub mod backend;
 pub mod highlight_rules;
 pub mod host_clipboard;
 pub mod input_tracker;
+pub mod last_command;
 pub mod osc;
 pub mod prompt_detect;
 pub mod screen_title;
@@ -16,6 +17,7 @@ pub use host_clipboard::{
     has_primary_selection, take_clipboard_requests, ClipboardRequest, ClipboardSink,
 };
 pub use input_tracker::{InputTracker, SubmittedLine};
+pub use last_command::{LastCommand, LastCommandUnavailable};
 pub use highlight_rules::{parse_hex_color, CompiledRule, CompiledRules};
 pub use osc::{PositionedShellMark, Progress, ShellMark};
 pub use prompt_detect::PasswordPrompt;

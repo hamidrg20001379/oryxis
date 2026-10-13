@@ -208,6 +208,9 @@ pub struct TerminalBackend {
     /// shift per mark is exactly the silent per-batch cost class #104
     /// hunts.
     marks: std::collections::VecDeque<crate::osc::PositionedShellMark>,
+    /// The last command's span, held as rows the moment each mark is
+    /// reached (see `last_command`).
+    pub(crate) spans: crate::last_command::CommandSpans,
     /// Watches the output for the highlight rules that carry an action.
     /// Inert (an early return, no accumulation) while no such rule
     /// exists, which is the normal case and the whole state of a replay
@@ -277,6 +280,7 @@ impl TerminalBackend {
             osc: crate::osc::OscSniffer::default(),
             screen_title: crate::screen_title::ScreenTitleFilter::default(),
             marks: std::collections::VecDeque::new(),
+            spans: Default::default(),
             trigger: crate::trigger::TriggerScanner::default(),
             rules: std::sync::Arc::default(),
             hits: std::collections::VecDeque::new(),
@@ -406,6 +410,13 @@ impl TerminalBackend {
                     abs_line,
                     col: point.column.0 as u16,
                 });
+                let text = match ev.mark {
+                    crate::osc::ShellMark::CommandLine(id) => {
+                        self.osc.command_line(id).map(str::to_string)
+                    }
+                    _ => None,
+                };
+                self.spans.on_mark(&mut self.term, ev.mark, point.line, point.column.0 as u16, text);
             }
             self.processor.advance(&mut self.term, &bytes[start..]);
         }));
