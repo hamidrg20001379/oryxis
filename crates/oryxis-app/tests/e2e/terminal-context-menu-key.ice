@@ -20,16 +20,24 @@ timeout 500
 type ctrl+shift+l
 settle 250
 expect "bash (default)"
-# A mouse resting over where the palette's rows will be.
+# A mouse resting where the palette's rows pass while the query narrows
+# them, and BELOW where the final list ends: a row that slides under it
+# arms its hover, then the list shrinks to two rows above it. Enter must
+# run the top row (the context menu opens), not the last one (the
+# right-click setting).
 move (600.00, 375.00)
 type ctrl+shift+p
 settle 400
-type "paste"
+type "context menu"
 settle 400
+expect "Open context menu"
 expect "Terminal Settings: Right-click"
 type enter
 settle 400
 absent "Terminal Settings"
+expect "Save Output As…"
+type escape
+settle 250
 # Known text on a known row: after `clear`, row 0 is the prompt and row 1
 # is the echo, from column 0.
 type "clear"
