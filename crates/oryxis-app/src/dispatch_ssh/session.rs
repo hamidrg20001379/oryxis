@@ -357,6 +357,8 @@ impl Oryxis {
                         // "finish" it with a duration spanning the outage.
                         p.running_cmd = None;
                         p.last_submitted = None;
+                        p.last_command_output = None;
+                        p.command_copy_pending = None;
                         // The reconnected shell has to prove its own
                         // integration: keeping `seen` would leave this pane
                         // waiting for marks the new shell may never send.

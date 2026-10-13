@@ -217,9 +217,8 @@ pub enum TerminalMessage {
     TerminalDropProgress(Uuid, crate::state::DropProgress),
     /// User asked to cancel the pane's in-flight OS-drop upload.
     TerminalDropCancel(Uuid),
-    /// Copy the whole buffer (scrollback + screen) of a pane to the
-    /// clipboard (context-menu "Copy All"). `pane_id`.
-    TerminalCopyAll(Uuid),
+    /// Copy the most recently completed shell command and its output.
+    TerminalCopyLastCommand(Uuid),
     /// Copy only the pane's displayed viewport, scroll position included and
     /// off-screen history excluded (context-menu "Copy Screen"). `pane_id`.
     TerminalCopyScreen(Uuid),

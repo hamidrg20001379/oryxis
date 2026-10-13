@@ -983,6 +983,53 @@ impl Oryxis {
                                 &new_marks,
                                 &new_texts,
                             );
+                            // Keep one bounded, copy-ready snapshot for the
+                            // last completed command. A batch normally holds
+                            // one command; skip ambiguous multi-command
+                            // batches rather than pairing output with the
+                            // wrong command.
+                            let command_for_copy = if new_marks
+                                .iter()
+                                .filter(|m| matches!(m.mark, oryxis_terminal::ShellMark::OutputStart))
+                                .count()
+                                == 1
+                            {
+                                cmds.first().cloned()
+                            } else {
+                                None
+                            };
+                            for mark in &new_marks {
+                                match mark.mark {
+                                    oryxis_terminal::ShellMark::OutputStart => {
+                                        if let Some((anchor, command)) = pane.command_copy_pending.take()
+                                            && let Some(text) = crate::command_capture::copy_command_output(
+                                                &state,
+                                                anchor,
+                                                &command,
+                                            )
+                                        {
+                                            pane.last_command_output = Some(text);
+                                        }
+                                        pane.command_copy_pending = command_for_copy
+                                            .clone()
+                                            .map(|command| (mark.abs_line, command));
+                                    }
+                                    oryxis_terminal::ShellMark::CommandEnd(_)
+                                    | oryxis_terminal::ShellMark::PromptStart
+                                    | oryxis_terminal::ShellMark::PromptEnd => {
+                                        if let Some((anchor, command)) = pane.command_copy_pending.take()
+                                            && let Some(text) = crate::command_capture::copy_command_output(
+                                                &state,
+                                                anchor,
+                                                &command,
+                                            )
+                                        {
+                                            pane.last_command_output = Some(text);
+                                        }
+                                    }
+                                    oryxis_terminal::ShellMark::CommandLine(_) => {}
+                                }
+                            }
                             // A capture resolved at this batch's OutputStart
                             // (paste with trailing newline) is the command
                             // that just started: label its run with it.

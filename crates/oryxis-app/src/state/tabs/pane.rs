@@ -749,6 +749,12 @@ pub(crate) struct Pane {
     /// Smart tabs: the last command line the input capture saw submitted,
     /// consumed by the next `OutputStart` to label `running_cmd`.
     pub last_submitted: Option<String>,
+    /// Latest completed shell command plus its output, ready for the
+    /// copy-last-command shortcut.
+    pub last_command_output: Option<String>,
+    /// Command currently being assembled for the copy-last-command action:
+    /// `(output_start_row, command_text)`.
+    pub command_copy_pending: Option<(i64, String)>,
     /// Smart tabs: why this pane's tab wants the user's eye (attention
     /// dot on the tab strip); the tab shows its panes' highest-priority
     /// cause. Cleared when the tab is viewed.
@@ -956,6 +962,8 @@ impl Pane {
             progress: None,
             running_cmd: None,
             last_submitted: None,
+            last_command_output: None,
+            command_copy_pending: None,
             attention: None,
             last_output: None,
             zmodem_detector: oryxis_zmodem::ZmodemDetector::new(),

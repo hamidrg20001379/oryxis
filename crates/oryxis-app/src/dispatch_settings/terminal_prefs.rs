@@ -60,6 +60,8 @@ impl Oryxis {
                             pane.attention = None;
                             pane.running_cmd = None;
                             pane.last_submitted = None;
+                            pane.last_command_output = None;
+                            pane.command_copy_pending = None;
                         }
                     }
                 }

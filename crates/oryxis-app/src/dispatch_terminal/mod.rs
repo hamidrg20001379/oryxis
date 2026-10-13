@@ -830,7 +830,7 @@ impl Oryxis {
             }
             TerminalMessage::ShowTerminalContextMenu(pane_id, x, y, selection) => {
                 // Focus the right-clicked pane first (standard context-menu
-                // behavior), so all rows act on the same pane: Copy All /
+                // behavior), so all rows act on the same pane: Copy Screen /
                 // Clear Scrollback are pane-targeted by id, and Paste
                 // routes through the focused pane.
                 if let Some(tab_idx) = self.pane_tab_index(pane_id) {
@@ -941,16 +941,13 @@ impl Oryxis {
                     up.abort.store(true, std::sync::atomic::Ordering::Relaxed);
                 }
             }
-            TerminalMessage::TerminalCopyAll(pane_id) => {
+            TerminalMessage::TerminalCopyLastCommand(pane_id) => {
                 self.overlay = None;
                 if let Some(pane) = self.pane_by_id(pane_id)
-                    && let Ok(state) = pane.terminal.lock()
+                    && let Some(text) = pane.last_command_output.clone()
+                    && !text.is_empty()
                 {
-                    let text = state.all_text();
-                    drop(state);
-                    if !text.is_empty() {
-                        return crate::dispatch_global::write_clipboard_text(text);
-                    }
+                    return self.update(Message::CopyToClipboard(text));
                 }
             }
             TerminalMessage::TerminalCopyScreen(pane_id) => {
