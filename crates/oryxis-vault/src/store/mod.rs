@@ -86,6 +86,13 @@ pub enum VaultError {
     /// what to check.
     #[error("The vault file is read-only for this user: check the permissions of the file and its folder, and that the mount is writable")]
     ReadOnly,
+
+    /// SQLite answered `SQLITE_CORRUPT` ("database disk image is
+    /// malformed"): a b-tree of the file is damaged. Kept apart from
+    /// `Database` so the boot can offer the rebuild (`store::rebuild`)
+    /// for exactly this and nothing else; the text is the engine's.
+    #[error("The vault file is damaged: {0}")]
+    Corrupt(String),
 }
 
 impl VaultError {
@@ -97,7 +104,14 @@ impl VaultError {
 
 impl From<rusqlite::Error> for VaultError {
     fn from(e: rusqlite::Error) -> Self {
-        VaultError::Database(e.to_string())
+        match &e {
+            rusqlite::Error::SqliteFailure(err, _)
+                if err.code == rusqlite::ErrorCode::DatabaseCorrupt =>
+            {
+                VaultError::Corrupt(e.to_string())
+            }
+            _ => VaultError::Database(e.to_string()),
+        }
     }
 }
 
@@ -479,6 +493,7 @@ mod known_hosts;
 mod login_scripts;
 mod logs;
 mod proxy_trust;
+pub mod rebuild;
 mod schema;
 mod settings;
 mod snippets;
@@ -498,6 +513,13 @@ impl VaultStore {
     /// on it on Windows, where `dirs::home_dir()` is a WinAPI call
     /// that ignores `$HOME` / `%USERPROFILE%`; without the override
     /// the harness would read and write the REAL profile vault).
+    /// Where `open_default` looks: `vault.db` in the app's own tree
+    /// (`ORYXIS_HOME` override included). The error screen names it and
+    /// the rebuild (`store::rebuild`) works on it.
+    pub fn default_path() -> Option<std::path::PathBuf> {
+        oryxis_core::paths::oryxis_dir().map(|dir| dir.join("vault.db"))
+    }
+
     pub fn open_default() -> Result<Self, VaultError> {
         let dir = oryxis_core::paths::oryxis_dir()
             .ok_or_else(|| VaultError::Io(std::io::Error::other("No home directory")))?;
@@ -555,6 +577,11 @@ impl VaultStore {
         )
         .map_err(VaultError::from)
         .map_err(VaultError::at_open_step("pragmas"))?;
+        // Again AFTER the open: a file SQLite just created (the first
+        // run, a rebuild's staging file) did not exist for the chmod
+        // above and was made with the umask's mode, and the WAL pragma
+        // has just created its `-wal` / `-shm` siblings.
+        Self::tighten_perms(&path);
 
         let mut store = Self {
             db,

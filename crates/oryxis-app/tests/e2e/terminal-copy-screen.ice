@@ -55,3 +55,4 @@ settle 250
 click right (600.00, 400.00)
 settle 250
 expect "Copy Screen"
+expect "Save Output As…"

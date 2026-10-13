@@ -13,6 +13,7 @@ mod open;
 mod lock;
 mod biometric;
 mod password;
+mod repair;
 
 use iced::Task;
 
@@ -63,6 +64,11 @@ impl Oryxis {
                 | VaultMessage::ConfirmChangeVaultPassword
                 | VaultMessage::VaultKdfCalibrated(..)
             ) => self.handle_vault_password(m),
+            m @ (
+                VaultMessage::RebuildDamagedVault
+                | VaultMessage::DamagedVaultRebuilt(..)
+                | VaultMessage::RestartAfterVaultRebuild
+            ) => self.handle_vault_repair(m),
             VaultMessage::VaultChangedOutside { writer } => {
                 tracing::info!(writer = %writer, "vault written by another process, reloading");
                 self.reload_after_external_write();

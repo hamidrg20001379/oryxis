@@ -17,10 +17,14 @@
 //! - [`action`]: the catalog of bindable actions and their rules.
 //! - [`binding`]: keys, mouse buttons, modifiers, parsing, matching.
 //! - [`defaults`]: the factory table and the per-action binding list.
+//! - [`layout`]: a whole set at once (presets, the shortcuts file).
+//! - [`presets`]: other terminals' keymaps, measured.
 
 mod action;
 mod binding;
 mod defaults;
+pub mod layout;
+mod presets;
 
 pub use action::{HotkeyAction, MouseBindingOwner};
 pub use binding::{
@@ -28,3 +32,4 @@ pub use binding::{
     wheel_zoom_chord, FamilyMatch, HotkeyBinding, MouseButton, PrimaryKey, WheelDirection,
 };
 pub use defaults::{default_bindings, HotkeyBindings, HotkeyMap, HotkeySlot};
+pub use presets::ShortcutPreset;

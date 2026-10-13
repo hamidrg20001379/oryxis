@@ -447,6 +447,21 @@ impl Oryxis {
                 OryxisColors::t().text_secondary,
             ));
         }
+        // "Save Output As..." has the same single door, the terminal's own
+        // menu, so it follows Copy Screen here under the same scheme gate.
+        // Any tab of the strip, not only the one on screen: it reads the
+        // whole buffer, which a background pane keeps exactly as current
+        // as a drawn one.
+        if self.prefs.terminal_right_click != crate::util::RightClickMode::Menu
+            && let Some(pane_id) = self.tabs.get(idx).map(|t| t.active().id)
+        {
+            items.push(self.menu_item(
+                iced_fonts::lucide::save(),
+                crate::i18n::t("terminal_save_output"),
+                Message::Terminal(TerminalMessage::TerminalSaveOutput(pane_id)),
+                OryxisColors::t().text_secondary,
+            ));
+        }
         items.push(self.menu_item(iced_fonts::lucide::rotate_cw(), crate::i18n::t("reconnect"), Message::Tabs(TabsMessage::ReconnectTab(idx)), OryxisColors::t().accent));
         items.push(self.menu_item(iced_fonts::lucide::x(), crate::i18n::t("close_tab"), Message::Tabs(TabsMessage::CloseTab(idx)), OryxisColors::t().text_secondary));
         // Right under the closes, and only with something to bring back:
@@ -1266,12 +1281,41 @@ impl Oryxis {
         pane_id: uuid::Uuid,
         selection: &Option<String>,
     ) -> Element<'_, Message> {
-        let mut items = iced::widget::Column::<iced::Element<'_, _>>::new();
+        let mut col = iced::widget::Column::<iced::Element<'_, _>>::new();
+        for item in self.terminal_context_menu_items(pane_id, selection) {
+            col = col.push(item);
+        }
+        col.boxed()
+    }
+
+    /// Row count of the pane context menu, for the popover's height.
+    ///
+    /// Read off the very rows the builder draws, like
+    /// `tab_actions_menu_rows`: every row below is conditional, and the
+    /// popover is sized from this number, so a count kept anywhere else
+    /// drifts from them silently and clips the last entry off the window
+    /// rather than failing loudly.
+    pub(crate) fn terminal_context_menu_rows(
+        &self,
+        pane_id: uuid::Uuid,
+        selection: &Option<String>,
+    ) -> f32 {
+        self.terminal_context_menu_items(pane_id, selection).len() as f32
+    }
+
+    /// The pane context menu's rows, in order. One owner for the rows and
+    /// their count.
+    fn terminal_context_menu_items(
+        &self,
+        pane_id: uuid::Uuid,
+        selection: &Option<String>,
+    ) -> Vec<Element<'_, Message>> {
+        let mut items: Vec<Element<'_, Message>> = Vec::new();
         // "Copy" acts on the selection captured at right-click
         // (the app can't read the widget's live selection); shown
         // only when something was selected.
         if let Some(text) = selection {
-            items = items.push(self.menu_item_hotkey(
+            items.push(self.menu_item_hotkey(
                 iced_fonts::lucide::copy(),
                 crate::i18n::t("terminal_copy"),
                 Message::Terminal(TerminalMessage::TerminalCopySelection(text.clone())),
@@ -1281,7 +1325,7 @@ impl Oryxis {
             // Same gesture as the Ctrl+Shift+X chord. Inside the
             // has-a-selection branch: with nothing selected it would just
             // duplicate the plain "Paste" row below it.
-            items = items.push(self.menu_item_hotkey(
+            items.push(self.menu_item_hotkey(
                 iced_fonts::lucide::clipboard_list(),
                 crate::i18n::t("hotkey_terminal_paste_selection"),
                 Message::Terminal(TerminalMessage::TerminalPasteSelection(pane_id, text.clone().into())),
@@ -1289,26 +1333,37 @@ impl Oryxis {
                 crate::hotkeys::HotkeyAction::TerminalPasteSelection,
             ));
         }
-        items = items
-            .push(self.menu_item(
-                iced_fonts::lucide::clipboard_copy(),
-                crate::i18n::t("terminal_copy_screen"),
-                Message::Terminal(TerminalMessage::TerminalCopyScreen(pane_id)),
-                OryxisColors::t().text_secondary,
-            ))
-            .push(self.menu_item_hotkey(
-                iced_fonts::lucide::clipboard_paste(),
-                crate::i18n::t("terminal_paste"),
-                Message::Terminal(TerminalMessage::TerminalPasteFromClipboard),
-                OryxisColors::t().text_secondary,
-                crate::hotkeys::HotkeyAction::TerminalPaste,
-            ))
-            .push(self.menu_item(
-                iced_fonts::lucide::eraser(),
-                crate::i18n::t("terminal_clear_scrollback"),
-                Message::Terminal(TerminalMessage::TerminalClearScrollback(pane_id)),
-                OryxisColors::t().text_secondary,
-            ));
+        // The screen as drawn, scroll position included, and nothing off
+        // it. Here the pane is necessarily the one under the cursor and
+        // necessarily visible, which is what makes the drawn viewport the
+        // right thing to export.
+        items.push(self.menu_item(
+            iced_fonts::lucide::clipboard_copy(),
+            crate::i18n::t("terminal_copy_screen"),
+            Message::Terminal(TerminalMessage::TerminalCopyScreen(pane_id)),
+            OryxisColors::t().text_secondary,
+        ));
+        // The opposite scope: the whole buffer, scrollback included, to
+        // the clipboard or a file (the dialog asks which).
+        items.push(self.menu_item(
+            iced_fonts::lucide::save(),
+            crate::i18n::t("terminal_save_output"),
+            Message::Terminal(TerminalMessage::TerminalSaveOutput(pane_id)),
+            OryxisColors::t().text_secondary,
+        ));
+        items.push(self.menu_item_hotkey(
+            iced_fonts::lucide::clipboard_paste(),
+            crate::i18n::t("terminal_paste"),
+            Message::Terminal(TerminalMessage::TerminalPasteFromClipboard),
+            OryxisColors::t().text_secondary,
+            crate::hotkeys::HotkeyAction::TerminalPaste,
+        ));
+        items.push(self.menu_item(
+            iced_fonts::lucide::eraser(),
+            crate::i18n::t("terminal_clear_scrollback"),
+            Message::Terminal(TerminalMessage::TerminalClearScrollback(pane_id)),
+            OryxisColors::t().text_secondary,
+        ));
         // Close this pane: only offered on split tabs (on a single
         // pane it would just be "close tab", which the tab menu owns).
         // The message carries the right-clicked pane's id: focus and
@@ -1330,7 +1385,7 @@ impl Oryxis {
             } else {
                 (iced_fonts::lucide::maximize(), "maximize_pane")
             };
-            items = items.push(self.menu_item(
+            items.push(self.menu_item(
                 zoom_glyph,
                 crate::i18n::t(zoom_key),
                 Message::Terminal(TerminalMessage::ToggleMaximizePaneAt(pane_id)),
@@ -1357,7 +1412,7 @@ impl Oryxis {
                 } else {
                     (iced_fonts::lucide::rows_two(), "pane_rearrange_stacked")
                 };
-                items = items.push(self.menu_item(
+                items.push(self.menu_item(
                     glyph,
                     crate::i18n::t(key),
                     Message::Terminal(TerminalMessage::FlipPaneSplit(pane_id)),
@@ -1368,54 +1423,20 @@ impl Oryxis {
             // item 4). Above Close because it is the non-destructive
             // half of the same idea, "this pane should not be here":
             // one keeps the session, the other ends it.
-            items = items.push(self.menu_item(
+            items.push(self.menu_item(
                 iced_fonts::lucide::external_link(),
                 crate::i18n::t("pane_to_new_tab"),
                 Message::Terminal(TerminalMessage::MovePaneToNewTab(pane_id)),
                 OryxisColors::t().text_secondary,
             ));
-            items = items.push(self.menu_item(
+            items.push(self.menu_item(
                 iced_fonts::lucide::x(),
                 crate::i18n::t("close_pane"),
                 Message::Terminal(TerminalMessage::ClosePane(Some(pane_id))),
                 OryxisColors::t().text_secondary,
             ));
         }
-        items.boxed()
-    }
-
-    /// Row count of the pane context menu, for the popover's height.
-    ///
-    /// Kept NEXT TO the builder, like `split_menu_rows` and
-    /// `tab_bar_menu_rows`, because every row above is conditional and a
-    /// count that lives in another file drifts from them silently: the
-    /// popover is sized from this number, so a row too few clips the
-    /// last entry off the window rather than failing loudly.
-    pub(crate) fn terminal_context_menu_rows(
-        &self,
-        pane_id: uuid::Uuid,
-        selection: &Option<String>,
-    ) -> f32 {
-        // A selection adds TWO rows (Copy, then Paste selection), not one.
-        let mut rows = if selection.is_some() { 5.0 } else { 3.0 };
-        let tab = self.pane_tab_index(pane_id).and_then(|i| self.tabs.get(i));
-        let Some(tab) = tab.filter(|t| t.pane_grid.panes.len() > 1) else {
-            return rows;
-        };
-        // Zoom + Close pane, plus the rearrange row when a divider is
-        // actually on screen to rearrange.
-        rows += 2.0;
-        let zoomed = tab.pane_grid.maximized().is_some();
-        let has_divider = tab
-            .pane_grid
-            .panes
-            .iter()
-            .find(|(_, p)| p.id == pane_id)
-            .is_some_and(|(handle, _)| tab.split_axis_at(*handle).is_some());
-        if !zoomed && has_divider {
-            rows += 1.0;
-        }
-        rows
+        items
     }
 
     /// Read-only context menu for the session-log transcript viewer

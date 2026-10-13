@@ -285,6 +285,29 @@ impl HotkeyBinding {
             && modifiers.logo() == self.logo
     }
 
+    /// Whether one keypress can fire both bindings: the same modifiers,
+    /// and the same key, or a family and one of its members (`ctrl+1`
+    /// is a key of `ctrl+1...9`, `alt+left` one of `alt+←/→`). Equality
+    /// alone cannot see that pair, and dispatch would let whichever
+    /// comes first in the catalog win in silence.
+    pub fn shares_keypress(&self, other: &HotkeyBinding) -> bool {
+        if (self.ctrl, self.shift, self.alt, self.logo) != (other.ctrl, other.shift, other.alt, other.logo) {
+            return false;
+        }
+        let member = |family: PrimaryKey, key: PrimaryKey| match (family, key) {
+            (PrimaryKey::Digit1to9, PrimaryKey::Char(c)) => ('1'..='9').contains(&c),
+            (PrimaryKey::ArrowLeftRight, PrimaryKey::Named(n)) => {
+                matches!(n, Named::ArrowLeft | Named::ArrowRight)
+            }
+            _ => false,
+        };
+        let same = match (self.primary, other.primary) {
+            (PrimaryKey::Char(a), PrimaryKey::Char(b)) => a.eq_ignore_ascii_case(&b),
+            (a, b) => a == b,
+        };
+        same || member(self.primary, other.primary) || member(other.primary, self.primary)
+    }
+
     /// Whether the primary is a mouse button.
     pub fn is_mouse(&self) -> bool {
         matches!(self.primary, PrimaryKey::Mouse(_))
@@ -321,7 +344,8 @@ impl HotkeyBinding {
         if self.ctrl || self.alt || self.logo {
             return true;
         }
-        // A function key is a chord on its own (F11 = fullscreen).
+        // A function key is a chord on its own (F11 = fullscreen), and
+        // so is the Menu key (the pane's context menu).
         if self.is_function_key_primary() {
             return true;
         }
@@ -361,8 +385,10 @@ impl HotkeyBinding {
         }
     }
 
-    /// `true` when the primary is F1..F12. The only primaries a
-    /// modifier-free binding may target.
+    /// `true` when the primary is F1..F12 or the Menu key. The only
+    /// primaries a modifier-free binding may target: none of them types
+    /// anything, and the Menu key reaches no program (the encoder sends
+    /// it nowhere).
     fn is_function_key_primary(&self) -> bool {
         matches!(
             self.primary,
@@ -379,6 +405,7 @@ impl HotkeyBinding {
                     | Named::F10
                     | Named::F11
                     | Named::F12
+                    | Named::ContextMenu
             )
         )
     }
@@ -597,6 +624,7 @@ fn named_to_str(n: Named) -> &'static str {
         Named::F10 => "f10",
         Named::F11 => "f11",
         Named::F12 => "f12",
+        Named::ContextMenu => "menu",
         _ => "?",
     }
 }
@@ -630,6 +658,7 @@ fn str_to_named(s: &str) -> Option<Named> {
         "f10" => Named::F10,
         "f11" => Named::F11,
         "f12" => Named::F12,
+        "menu" => Named::ContextMenu,
         _ => return None,
     })
 }

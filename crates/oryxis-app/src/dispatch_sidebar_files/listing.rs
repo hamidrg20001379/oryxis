@@ -117,7 +117,7 @@ impl Oryxis {
 /// drops it whole. The shift-click anchor follows the same rule, so a
 /// later shift-click never extends from a row that is no longer there.
 fn prune_selection(files: &mut crate::state::PaneFiles, path: &str) {
-    files.last_click = None;
+    files.click_tracker.reset();
     if files.selected.is_empty() {
         files.selection_anchor = None;
         return;

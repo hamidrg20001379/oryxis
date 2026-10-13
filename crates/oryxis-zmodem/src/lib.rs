@@ -45,13 +45,17 @@ pub use driver::{
     TransferSpec, place_file, resume_owner_path, resume_owner_path_for_part, run,
 };
 
-/// The canonical ZMODEM cancel sequence: eight `CAN` (ZDLE) bytes then
-/// eight backspaces, which lrzsz recognizes as an abort and which also
-/// erases the CANs from the remote's line. Written to the transport when
-/// the user declines an upload's file picker so the remote `rz` exits
-/// cleanly instead of waiting out its timeout.
+/// The canonical ZMODEM cancel sequence: ten `CAN` (ZDLE) bytes then ten
+/// backspaces, lrzsz's `canit()`, which the other end takes as an abort
+/// and which also erases the CANs from the remote's line. `zmodem2`'s
+/// `abort()` queues these same bytes for a session it is running; this
+/// copy is for the ends it does not see: the user declining an upload's
+/// file picker before any session exists, and a local failure that ends
+/// the driver mid-session. Either way the remote `rz` / `sz` exits at once
+/// instead of waiting out its timeout.
 pub const CANCEL: &[u8] = &[
-    0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08,
+    0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08,
+    0x08, 0x08, 0x08, 0x08,
 ];
 
 // Re-export the protocol primitives so the app drives one dependency.

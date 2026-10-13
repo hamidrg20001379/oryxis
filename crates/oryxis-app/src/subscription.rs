@@ -89,9 +89,19 @@ impl Oryxis {
         // (`Message::InWindow`), so a key or a click in an extra window
         // acts on that window's tabs. The main window's unwrap is a
         // no-op in `update`.
-        let events = iced::event::listen_with(|event, _status, window| {
+        let events = iced::event::listen_with(|event, status, window| {
             let message = match event {
-                iced::event::Event::Keyboard(ke) => Some(Message::Terminal(TerminalMessage::KeyboardEvent(ke))),
+                // A key a widget captured (a focused text input edited or
+                // moved its caret with it) is told apart, so the SFTP list
+                // router can leave it to the field; everything else sees
+                // the two the same.
+                iced::event::Event::Keyboard(ke) => Some(Message::Terminal(
+                    if status == iced::event::Status::Captured {
+                        TerminalMessage::KeyboardEventCaptured(ke)
+                    } else {
+                        TerminalMessage::KeyboardEvent(ke)
+                    },
+                )),
                 // Text committed by the OS IME (composed CJK characters,
                 // etc.). Routed to the active PTY in dispatch_terminal,
                 // behind the same focus guards as KeyboardEvent. Preedit /

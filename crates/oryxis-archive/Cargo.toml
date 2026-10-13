@@ -12,7 +12,7 @@ thiserror = { workspace = true }
 # (local compress). Deflate only: stored + deflate cover effectively all
 # real-world zips; exotic methods surface an honest per-entry error
 # instead of pulling bzip2/lzma/zstd into the binary.
-zip = { version = "8", default-features = false, features = ["deflate-flate2"] }
+zip = { version = "9.0.2", default-features = false, features = ["deflate-flate2"] }
 tar = "0.4"
 flate2 = "1"
 walkdir = "2"

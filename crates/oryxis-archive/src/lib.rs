@@ -43,3 +43,16 @@ pub enum ArchiveError {
     #[error("{0}")]
     UnsafeName(String),
 }
+
+/// A zip entry's name for a message. zip decodes a name when it is asked
+/// for (UTF-8, else CP437) and reports a name it cannot decode; a message
+/// about that entry still has to say which one, so it falls back to the
+/// raw bytes.
+pub(crate) fn zip_entry_label<R: std::io::Read + ?Sized>(
+    entry: &zip::read::ZipFile<'_, R>,
+) -> String {
+    match entry.name() {
+        Ok(name) => name.into_owned(),
+        Err(_) => String::from_utf8_lossy(entry.name_raw()).into_owned(),
+    }
+}

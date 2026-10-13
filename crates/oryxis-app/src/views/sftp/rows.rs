@@ -10,9 +10,12 @@ pub(crate) fn parent_row<'a>(
     widths: crate::state::SftpColWidths,
     layout: ColLayout,
 ) -> Element<'a, Message> {
-    let msg = Message::Sftp(SftpMessage::SftpUp(side));
-    // Same fixed slot as the file rows so the name column aligns; no
-    // one-click affordance needed, the whole ".." row is single-click.
+    // FileZilla's ".." is a row like any other: a click selects it (the
+    // keyboard cursor parks there) and a double click goes up, judged on
+    // the press the publisher below reports ahead of this release.
+    let msg = Message::Sftp(SftpMessage::SftpParentRowClicked(side));
+    // Same fixed slot as the file rows so the name column aligns; no icon
+    // door here, unlike a folder's: the row's double click is the way up.
     let icon = icon_slot(
         iced_fonts::lucide::folder()
             .size(13)
@@ -27,7 +30,7 @@ pub(crate) fn parent_row<'a>(
     // Blank trailing cells keep the ".." row aligned with the columns.
     let children = row_cells(visible, widths, icon, label, None, |_| String::new());
     let inner = iced::widget::Row::with_children(children).align_y(iced::Alignment::Center);
-    button(inner)
+    let btn = button(inner)
         .padding(Padding { top: 4.0, right: 12.0, bottom: 4.0, left: 12.0 })
         .width(layout.row_len)
         .height(Length::Fixed(ROW_HEIGHT))
@@ -47,8 +50,10 @@ pub(crate) fn parent_row<'a>(
                 border: Border::default(),
                 ..Default::default()
             }
-        })
-        .boxed()
+        });
+    crate::widgets::press_publisher(btn.boxed(), move |at| {
+        Message::Sftp(SftpMessage::SftpRowPressed(crate::state::SftpClickKey::Parent(side), at))
+    })
 }
 
 /// One data cell: a single, fixed-width line of text that truncates with an
@@ -358,15 +363,16 @@ pub(crate) fn file_row_local<'a>(
         .height(Length::Fill)
         .align_y(iced::Alignment::Center);
 
-    // Click action priority: while renaming, swallow clicks; folders
-    // navigate; files mark themselves selected so the user has visible
-    // confirmation that the row is interactive (was previously a disabled
-    // button, no hover, no pointer cursor, looked dead).
+    // Click action priority: while renaming, swallow clicks; otherwise the
+    // row selects itself, so the user has visible confirmation that it is
+    // interactive (was previously a disabled button, no hover, no pointer
+    // cursor, looked dead).
     let path_str = path.to_string_lossy().into_owned();
-    // SftpSelectRow handles plain folder click (navigate), file click
-    // (single-select), and modifier clicks (toggle / range). Routing it
-    // all through one message means modifier state can be consulted
-    // server-side instead of being stored at button-build time.
+    // SftpSelectRow handles the plain click (select, or the double-click
+    // action the press was judged to be, see `SftpRowPressed`) and the
+    // modifier clicks (toggle / range). Routing it all through one message
+    // means modifier state can be consulted server-side instead of being
+    // stored at button-build time.
     let on_click = if rename_input.is_some() {
         None
     } else {

@@ -2,7 +2,7 @@
 
 use iced::Widget as _;
 use iced::border::Radius;
-use iced::widget::{button, column, container, svg, text, Space};
+use iced::widget::{button, column, container, svg, text, Column, Space};
 use iced::{Background, Border, Color, Element, Length, Padding};
 
 use crate::app::{VaultMessage, Message, Oryxis};
@@ -231,8 +231,11 @@ impl Oryxis {
     /// it: the chrome bar above is the way out.
     pub(crate) fn view_vault_open_failed(&self) -> Element<'_, Message> {
         let c = OryxisColors::t();
-        let vault_path = oryxis_core::paths::oryxis_dir()
-            .map(|d| d.join("vault.db").display().to_string())
+        // The rows this screen records for the keyboard (the rebuild and
+        // the restart), fresh every frame.
+        self.modal_nav_reset();
+        let vault_path = oryxis_vault::VaultStore::default_path()
+            .map(|p| p.display().to_string())
             .unwrap_or_else(|| "~/.oryxis/vault.db".to_string());
         let log_path = crate::logging::log_path()
             .map(|p| p.display().to_string())
@@ -259,6 +262,8 @@ impl Oryxis {
                     // Refused on purpose, with the reason: see
                     // `VaultUi::open_read_only`.
                     "vault_open_read_only_hint"
+                } else if self.vault_ui.open_corrupt {
+                    "vault_open_corrupt_hint"
                 } else {
                     "vault_open_failed_hint"
                 }))
@@ -273,6 +278,9 @@ impl Oryxis {
                     .color(c.text_secondary)
                     .boxed(),
             );
+        if self.vault_ui.open_corrupt {
+            col = col.push(self.vault_rebuild_block());
+        }
         let body: Element<'_, Message> = container(container(col).width(Length::Fixed(640.0)).padding(24))
             .center(Length::Fill)
             .style(|_| container::Style {
@@ -285,5 +293,133 @@ impl Oryxis {
         with_chrome(body, self.cur_maximized())
     }
 
+    /// The repair offered for a damaged vault file, by where it stands.
+    fn vault_rebuild_block(&self) -> Element<'_, Message> {
+        use crate::keynav::RowAction;
+        use crate::state::VaultRebuild;
+        let c = OryxisColors::t();
+        let rebuild_msg = Message::Vault(VaultMessage::RebuildDamagedVault);
+        let rebuild_button = |enabled: bool| -> Element<'_, Message> {
+            let msg = enabled.then(|| rebuild_msg.clone());
+            let el = crate::widgets::styled_button_opt(t("vault_rebuild_button"), msg.clone(), c.accent);
+            match msg {
+                Some(m) => self.modal_nav_slot(RowAction::activate(m), 8.0, true, el),
+                None => el,
+            }
+        };
+        let mut col = Column::<Element<'_, Message>>::new().spacing(10).padding(Padding::ZERO.top(8.0));
+        match &self.vault_ui.rebuild {
+            VaultRebuild::Idle => {
+                col = col
+                    .push(text(t("vault_rebuild_explain")).size(13).color(c.text_secondary).boxed())
+                    .push(rebuild_button(true));
+            }
+            VaultRebuild::Running => {
+                col = col
+                    .push(text(t("vault_rebuild_running")).size(13).color(c.text_primary).boxed())
+                    .push(rebuild_button(false));
+            }
+            VaultRebuild::Failed(e) => {
+                col = col
+                    .push(
+                        text(t("vault_rebuild_failed").replace("{error}", e))
+                            .size(13)
+                            .selectable(true)
+                            .color(c.error)
+                            .boxed(),
+                    )
+                    .push(rebuild_button(true));
+            }
+            VaultRebuild::Done { report, restart_failed } => {
+                col = col.push(text(t("vault_rebuild_finished")).size(14).color(c.text_primary).boxed());
+                let lost: Vec<oryxis_vault::KindRebuild> =
+                    report.by_kind().into_iter().filter(|k| k.lost_anything()).collect();
+                if lost.is_empty() {
+                    col = col.push(text(t("vault_rebuild_nothing_lost")).size(13).color(c.text_secondary).boxed());
+                }
+                for k in &lost {
+                    let label = rebuild_kind_label(k.kind);
+                    if k.kind == oryxis_vault::DataKind::VaultData {
+                        // Without its salt, parameters and password check
+                        // the rebuilt file may refuse the master password.
+                        col = col.push(text(t("vault_rebuild_vault_data_damaged")).size(13).color(c.error).boxed());
+                    }
+                    let mut lines: Vec<String> = Vec::new();
+                    if k.skipped > 0 {
+                        lines.push(
+                            t("vault_rebuild_kind_line")
+                                .replace("{kind}", label)
+                                .replace("{kept}", &k.kept.to_string())
+                                .replace("{skipped}", &k.skipped.to_string()),
+                        );
+                    }
+                    if k.content_gaps {
+                        lines.push(
+                            t("vault_rebuild_kind_gaps")
+                                .replace("{kind}", label)
+                                .replace("{kept}", &k.kept.to_string()),
+                        );
+                    }
+                    if k.detached > 0 {
+                        lines.push(
+                            t("vault_rebuild_kind_detached")
+                                .replace("{kind}", label)
+                                .replace("{count}", &k.detached.to_string()),
+                        );
+                    }
+                    for line in lines {
+                        col = col.push(text(line).size(13).selectable(true).color(c.text_secondary).boxed());
+                    }
+                }
+                col = col.push(
+                    text(t("vault_rebuild_kept_at").replace("{path}", &report.damaged_path.display().to_string()))
+                        .size(13)
+                        .selectable(true)
+                        .color(c.text_secondary)
+                        .boxed(),
+                );
+                let restart = Message::Vault(VaultMessage::RestartAfterVaultRebuild);
+                col = col.push(self.modal_nav_slot(
+                    RowAction::activate(restart.clone()),
+                    8.0,
+                    true,
+                    styled_button(t("vault_rebuild_restart"), restart, c.accent),
+                ));
+                if *restart_failed {
+                    col = col.push(text(t("vault_rebuild_restart_failed")).size(13).color(c.error).boxed());
+                }
+            }
+        }
+        col.boxed()
+    }
+
     // -- Main layout --
+}
+
+/// The name a user knows for what a vault table holds.
+fn rebuild_kind_label(kind: oryxis_vault::DataKind) -> &'static str {
+    use oryxis_vault::DataKind as K;
+    t(match kind {
+        K::VaultData => "rebuild_kind_vault_data",
+        K::Hosts => "hosts",
+        K::Folders => "groups",
+        K::SessionGroups => "session_groups",
+        K::Keys => "keychain",
+        K::Identities => "identities",
+        K::Proxies => "proxies",
+        K::Snippets => "snippets",
+        K::PortForwards => "port_forwarding",
+        K::KnownHosts => "known_hosts",
+        K::ApprovedProxyCommands => "rebuild_kind_approved_proxies",
+        K::LoginScripts => "login_scripts",
+        K::CloudAccounts => "cloud_accounts",
+        K::Recordings => "rebuild_kind_recordings",
+        K::ConnectionLog => "rebuild_kind_connection_log",
+        K::CommandHistory => "tab_tip_history",
+        K::AiChat => "tab_tip_chat",
+        K::Themes => "rebuild_kind_themes",
+        K::Sync => "sync",
+        K::Settings => "settings",
+        K::Newer => "rebuild_kind_newer",
+    })
 }

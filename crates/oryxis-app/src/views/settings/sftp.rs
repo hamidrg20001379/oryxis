@@ -228,7 +228,45 @@ impl Oryxis {
                     |v| Message::Settings(SettingsMessage::SftpConsoleLayoutChanged(v)),
                 ),
             ]);
+            // What a double click (and Enter) does on a row of the
+            // dual-pane browser: FileZilla's two choices, one picker per
+            // kind of row. The `..` row is outside both.
+            let double_click_section = panel_section(column![
+                text(t("setting_sftp_double_click"))
+                    .size(13)
+                    .color(OryxisColors::t().text_primary),
+                Space::new().height(4),
+                text(t("setting_sftp_double_click_desc"))
+                    .size(11)
+                    .color(OryxisColors::t().text_muted),
+                Space::new().height(8),
+                self.nav_pick_row(
+                    t("setting_sftp_dir_double_click"),
+                    crate::state::SftpDirDoubleClick::ALL
+                        .into_iter()
+                        .map(|a| t(a.label_key()).to_string())
+                        .collect::<Vec<String>>(),
+                    t(self.prefs.sftp_dir_double_click.label_key()).to_string(),
+                    |s: &String| s.clone(),
+                    260.0,
+                    |v| Message::Settings(SettingsMessage::SftpDirDoubleClickChanged(v)),
+                ),
+                Space::new().height(8),
+                self.nav_pick_row(
+                    t("setting_sftp_file_double_click"),
+                    crate::state::SftpFileDoubleClick::ALL
+                        .into_iter()
+                        .map(|a| t(a.label_key()).to_string())
+                        .collect::<Vec<String>>(),
+                    t(self.prefs.sftp_file_double_click.label_key()).to_string(),
+                    |s: &String| s.clone(),
+                    260.0,
+                    |v| Message::Settings(SettingsMessage::SftpFileDoubleClickChanged(v)),
+                ),
+            ]);
             content_col = content_col
+                .push(double_click_section)
+                .push(Space::new().height(12).boxed())
                 .push(console_section)
                 .push(Space::new().height(12).boxed())
                 .push(download_section)

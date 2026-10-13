@@ -410,12 +410,14 @@ impl Oryxis {
         }
     }
 
-    /// Activate the focused row. Both Enter (`open_files == true`) and Right
-    /// (`false`) descend into a folder and land the keyboard cursor on the
-    /// opened folder's `..` row. Enter additionally opens a *file* (local via
-    /// the OS handler, remote via edit-in-place); Right does nothing on a
-    /// file. The `..` cursor navigates to the parent either way. No-op when
-    /// nothing is focused.
+    /// Activate the focused row from the keyboard. Right (`open_files ==
+    /// false`) always descends into a folder and lands the cursor on the
+    /// opened folder's `..` row; on a file it does nothing. Enter
+    /// (`open_files == true`) is FileZilla's activation, the same as a
+    /// double click: the double-click setting decides what happens to a
+    /// folder or a file (`sftp_activate_entry`), and a selection of
+    /// several rows is sent to the other pane as a whole. The `..` cursor
+    /// goes up either way. No-op when nothing is focused.
     pub(crate) fn sftp_activate_focused(&mut self, open_files: bool) -> Task<Message> {
         use crate::state::SftpPendingFocus;
         let side = self.cur_sftp().focused_side;
@@ -431,30 +433,191 @@ impl Oryxis {
         else {
             return Task::none();
         };
-        let is_dir = self.row_is_dir_in_pane(side, &path);
-        let is_remote = self.cur_sftp().pane(side).is_remote;
-        if is_dir {
+        let opens_as_folder = self.row_opens_as_folder(side, &path);
+        if !open_files {
+            if !opens_as_folder {
+                // Right arrow on a file: nothing to descend into.
+                return Task::none();
+            }
             self.sftp.selected_rows.clear();
             self.sftp.selection_anchor = None;
             self.sftp.parent_cursor = false;
             // Descend and keep the cursor on the new folder's ".." row once
-            // its listing loads (same for Enter and Right).
+            // its listing loads.
             self.sftp.pending_focus = Some((side, SftpPendingFocus::Parent));
-            if is_remote {
-                Task::done(Message::Sftp(SftpMessage::SftpNavigateRemote(side, path)))
-            } else {
-                Task::done(Message::Sftp(SftpMessage::SftpNavigateLocal(
-                    side,
-                    std::path::PathBuf::from(path),
-                )))
+            return self.sftp_navigate_into(side, path);
+        }
+        let selected_here =
+            self.cur_sftp().selected_rows.iter().filter(|(s, _)| *s == side).count();
+        if selected_here > 1 {
+            return self.sftp_transfer_selection(side);
+        }
+        self.sftp_activate_entry(side, path, opens_as_folder, true)
+    }
+
+    /// FileZilla's activation of one row, shared by a double click and
+    /// Enter: the double-click setting for its kind decides. A zip the
+    /// browser can open counts as a folder (its "open" is browsing it);
+    /// `opens_as_folder` is the row's own answer (a remote symlink opens
+    /// like a folder, as its icon does). `from_keyboard` lands the cursor
+    /// on the opened folder's `..` row, the keyboard descent's rule.
+    pub(crate) fn sftp_activate_entry(
+        &mut self,
+        side: crate::state::SftpPaneSide,
+        path: String,
+        opens_as_folder: bool,
+        from_keyboard: bool,
+    ) -> Task<Message> {
+        use crate::state::{SftpDirDoubleClick, SftpFileDoubleClick, SftpPendingFocus};
+        let browsable_zip = !opens_as_folder && self.sftp_zip_browsable(side, &path);
+        if opens_as_folder || browsable_zip {
+            return match self.prefs.sftp_dir_double_click {
+                SftpDirDoubleClick::Enter if browsable_zip => {
+                    Task::done(Message::Sftp(SftpMessage::SftpZipOpen(side, path)))
+                }
+                SftpDirDoubleClick::Enter => {
+                    self.sftp.selected_rows.clear();
+                    self.sftp.selection_anchor = None;
+                    self.sftp.parent_cursor = false;
+                    if from_keyboard {
+                        self.sftp.pending_focus = Some((side, SftpPendingFocus::Parent));
+                    }
+                    self.sftp_navigate_into(side, path)
+                }
+                SftpDirDoubleClick::Transfer => self.sftp_transfer_entry(side, path),
+                SftpDirDoubleClick::Nothing => Task::none(),
+            };
+        }
+        match self.prefs.sftp_file_double_click {
+            SftpFileDoubleClick::Transfer => self.sftp_transfer_entry(side, path),
+            // A file inside a browsed archive has no "open": the listing is
+            // virtual, and copying it out is the transfer.
+            SftpFileDoubleClick::Open if self.cur_sftp().pane(side).zip.is_some() => Task::none(),
+            SftpFileDoubleClick::Open if self.cur_sftp().pane(side).is_remote => {
+                Task::done(Message::Sftp(SftpMessage::SftpStartEdit(side, path)))
             }
-        } else if !open_files {
-            // Right arrow on a file: nothing to descend into.
-            Task::none()
-        } else if is_remote {
-            Task::done(Message::Sftp(SftpMessage::SftpStartEdit(side, path)))
+            SftpFileDoubleClick::Open => Task::done(Message::Sftp(SftpMessage::SftpOpenLocal(
+                std::path::PathBuf::from(path),
+            ))),
+            SftpFileDoubleClick::Nothing => Task::none(),
+        }
+    }
+
+    /// Navigate a pane into `path` (a folder of its listing, or of the
+    /// archive it is browsing: the navigate arms intercept that).
+    fn sftp_navigate_into(&self, side: crate::state::SftpPaneSide, path: String) -> Task<Message> {
+        if self.cur_sftp().pane(side).is_remote {
+            Task::done(Message::Sftp(SftpMessage::SftpNavigateRemote(side, path)))
         } else {
-            Task::done(Message::Sftp(SftpMessage::SftpOpenLocal(std::path::PathBuf::from(path))))
+            Task::done(Message::Sftp(SftpMessage::SftpNavigateLocal(
+                side,
+                std::path::PathBuf::from(path),
+            )))
+        }
+    }
+
+    /// Whether a row is a zip this pane can browse in place: a `.zip`
+    /// name, outside a browsed archive (a nested zip would need its outer
+    /// entry decompressed first, which defeats the ranged-read model).
+    fn sftp_zip_browsable(&self, side: crate::state::SftpPaneSide, path: &str) -> bool {
+        use oryxis_archive::names::ArchiveKind;
+        self.cur_sftp().pane(side).zip.is_none()
+            && matches!(
+                ArchiveKind::from_name(&crate::dispatch_sftp_archive::base_name(path)),
+                Some(ArchiveKind::Zip)
+            )
+    }
+
+    /// Whether a row opens like a folder: a folder, or a remote symlink
+    /// (the listing cannot tell where it points, so it is offered as a
+    /// way in, the same answer its row and icon give).
+    fn row_opens_as_folder(&self, side: crate::state::SftpPaneSide, path: &str) -> bool {
+        let pane = self.cur_sftp().pane(side);
+        if pane.is_remote {
+            let basename = path.rsplit('/').find(|s| !s.is_empty()).unwrap_or(path);
+            return pane
+                .remote_entries
+                .iter()
+                .find(|e| e.name == basename)
+                .is_some_and(|e| e.is_dir || e.is_symlink);
+        }
+        self.row_is_dir_in_pane(side, path)
+    }
+
+    /// What the pane opposite `side` is as a transfer destination: its
+    /// side, whether it is a remote one, and whether it can take a
+    /// transfer right now (a remote pane needs its session; a Local pane
+    /// always can). The row menu offers Upload / Download / Relay from
+    /// the same answer.
+    pub(crate) fn sftp_cross_pane(&self, side: crate::state::SftpPaneSide) -> SftpCrossPane {
+        use crate::state::SftpPaneSide::{Left, Right};
+        let other_side = if side == Left { Right } else { Left };
+        let other = self.cur_sftp().pane(other_side);
+        SftpCrossPane {
+            other_side,
+            other_is_remote: other.is_remote,
+            ready: !other.is_remote || other.client.is_some(),
+        }
+    }
+
+    /// Send one row to the other pane, the way the row menu would: an
+    /// upload, a download or a relay by the two panes' natures, a
+    /// copy-out from a browsed archive. Two Local panes have no transfer
+    /// between them (FileZilla has no local-to-local either); an other
+    /// pane whose session is gone says so instead of doing nothing.
+    pub(crate) fn sftp_transfer_entry(
+        &mut self,
+        side: crate::state::SftpPaneSide,
+        path: String,
+    ) -> Task<Message> {
+        let cross = self.sftp_cross_pane(side);
+        let source_is_remote = self.cur_sftp().pane(side).is_remote;
+        if !cross.ready {
+            return self.show_toast(crate::i18n::t("sftp_not_connected").to_string());
+        }
+        // The listing's own answer, not the row's "opens as folder": a
+        // remote symlink is transferred as what the server says it is,
+        // which is what the menu's Download does.
+        let is_dir = self.row_is_dir_in_pane(side, &path);
+        if self.cur_sftp().pane(side).zip.is_some() {
+            // Out of a browsed archive, into a pane that is not browsing
+            // one itself (the menu's copy-out gate).
+            if self.cur_sftp().pane(cross.other_side).zip.is_some() {
+                return Task::none();
+            }
+            return Task::done(Message::Sftp(SftpMessage::SftpZipCopyOut(side, path, is_dir)));
+        }
+        let msg = match (source_is_remote, cross.other_is_remote, is_dir) {
+            (false, true, true) => SftpMessage::SftpUploadFolder(std::path::PathBuf::from(path)),
+            (false, true, false) => {
+                SftpMessage::SftpUploadBatch(vec![std::path::PathBuf::from(path)])
+            }
+            (true, false, true) => SftpMessage::SftpDownloadFolder(path),
+            (true, false, false) => SftpMessage::SftpDownload(path),
+            (true, true, true) => SftpMessage::SftpRelayFolder(side, path),
+            (true, true, false) => SftpMessage::SftpRelay(side, path),
+            (false, false, _) => return Task::none(),
+        };
+        Task::done(Message::Sftp(msg))
+    }
+
+    /// Enter on a selection of several rows: FileZilla sends the whole
+    /// selection to the other pane. The batch doors exist for upload and
+    /// download; a relay between two remote panes goes one row at a time
+    /// in the menu too, so a multi-row Enter there does nothing.
+    fn sftp_transfer_selection(&mut self, side: crate::state::SftpPaneSide) -> Task<Message> {
+        let cross = self.sftp_cross_pane(side);
+        let pane = self.cur_sftp().pane(side);
+        if pane.zip.is_some() {
+            return Task::none();
+        }
+        if !cross.ready {
+            return self.show_toast(crate::i18n::t("sftp_not_connected").to_string());
+        }
+        match (pane.is_remote, cross.other_is_remote) {
+            (false, true) => Task::done(Message::Sftp(SftpMessage::SftpUploadSelection)),
+            (true, false) => Task::done(Message::Sftp(SftpMessage::SftpDownloadSelection)),
+            _ => Task::none(),
         }
     }
 
@@ -1730,4 +1893,13 @@ fn list_wsl_distros_for_pane() -> Vec<String> {
     {
         Vec::new()
     }
+}
+
+/// The pane opposite a row's, as a transfer destination
+/// (`Oryxis::sftp_cross_pane`).
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct SftpCrossPane {
+    pub(crate) other_side: crate::state::SftpPaneSide,
+    pub(crate) other_is_remote: bool,
+    pub(crate) ready: bool,
 }

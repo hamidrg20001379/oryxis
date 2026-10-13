@@ -74,4 +74,11 @@ pub enum VaultMessage {
     /// marker; `writer` names it. The in-memory entity lists are
     /// re-read while the vault is unlocked.
     VaultChangedOutside { writer: String },
+    /// The boot error screen's repair: rebuild a damaged vault file
+    /// (`oryxis_vault::rebuild_vault`) on a blocking worker.
+    RebuildDamagedVault,
+    /// The rebuild ended: what it kept, or why it could not write.
+    DamagedVaultRebuilt(Result<oryxis_vault::RebuildReport, String>),
+    /// Restart into the rebuilt vault (`relaunch_self`).
+    RestartAfterVaultRebuild,
 }

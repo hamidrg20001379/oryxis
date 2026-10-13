@@ -303,7 +303,10 @@ impl VaultStore {
                 ON chat_messages(conversation_id);
             ",
         )
-        .map_err(|e| VaultError::Database(format!("base tables: {e}")))?;
+        .map_err(|e| match VaultError::from(e) {
+            VaultError::Corrupt(text) => VaultError::Corrupt(format!("base tables: {text}")),
+            other => VaultError::Database(format!("base tables: {other}")),
+        })?;
 
         // Migrations: add columns to existing tables (ignore errors if already present)
         let _ = self.db.execute_batch("ALTER TABLE connections ADD COLUMN identity_id TEXT;");
@@ -568,7 +571,12 @@ impl VaultStore {
     /// refused (issue #250).
     pub(super) fn ensure_session_log_bytes(&self) -> Result<(), VaultError> {
         let phase = |what: &'static str| {
-            move |e: rusqlite::Error| VaultError::Database(format!("session log sizes, {what}: {e}"))
+            move |e: rusqlite::Error| match VaultError::from(e) {
+                // Keep the engine's classification: a damaged file is
+                // what the boot offers the rebuild for.
+                VaultError::Corrupt(text) => VaultError::Corrupt(format!("session log sizes, {what}: {text}")),
+                other => VaultError::Database(format!("session log sizes, {what}: {other}")),
+            }
         };
         if !self.db.is_autocommit() {
             // `BEGIN IMMEDIATE` inside a caller's transaction would fail

@@ -10,22 +10,26 @@ impl Oryxis {
         self.keynav_settings_reset();
         let defaults = default_bindings();
 
-        // Header: title + hint + global reset button.
+        // Header: hint, the preset selector, then the whole-set buttons
+        // (reset, export, import).
         let header = column![
                                 text(crate::i18n::t("hotkey_edit_hint"))
                 .size(11)
                 .color(OryxisColors::t().text_muted),
             Space::new().height(10),
-            self.settings_nav_slot_labeled(
-                crate::i18n::t("hotkey_reset_all"),
-                crate::keynav::RowAction::activate(Message::Settings(SettingsMessage::ResetAllHotkeys)),
-                6.0,
-                styled_button(
-                    crate::i18n::t("hotkey_reset_all"),
-                    Message::Settings(SettingsMessage::ResetAllHotkeys),
-                    OryxisColors::t().bg_selected,
-                ),
-            ),
+            self.hotkey_preset_row(),
+            Space::new().height(4),
+            text(crate::i18n::t("hotkey_presets_desc"))
+                .size(11)
+                .color(OryxisColors::t().text_muted),
+            Space::new().height(10),
+            crate::widgets::dir_row(vec![
+                self.hotkey_set_button("hotkey_reset_all", SettingsMessage::ResetAllHotkeys),
+                Space::new().width(8).boxed(),
+                self.hotkey_set_button("hotkey_export", SettingsMessage::ExportHotkeys),
+                Space::new().width(8).boxed(),
+                self.hotkey_set_button("hotkey_import", SettingsMessage::ImportHotkeys),
+            ]),
             Space::new().height(16),
         ]
         .width(Length::Fill)
@@ -78,6 +82,54 @@ impl Oryxis {
         .on_scroll(|s| Message::Settings(SettingsMessage::SectionScrolled(s.viewport.relative_offset().y)))
         .height(Length::Fill)
         .boxed()
+    }
+
+    /// The preset selector: Oryxis's own, each preset this platform has,
+    /// and "Custom" shown (never offered) once the table is hand-made.
+    fn hotkey_preset_row(&self) -> Element<'_, Message> {
+        use crate::hotkeys::ShortcutPreset;
+        const ORYXIS: &str = "oryxis";
+        const CUSTOM: &str = "custom";
+        let code = |p: &ShortcutPreset| format!("preset:{}", p.name());
+        let mut options = vec![ORYXIS.to_string()];
+        options.extend(ShortcutPreset::available().iter().map(code));
+        let selected = match self.current_hotkey_preset() {
+            Some(None) => ORYXIS.to_string(),
+            Some(Some(p)) => code(&p),
+            None => CUSTOM.to_string(),
+        };
+        self.nav_pick_row(
+            crate::i18n::t("hotkey_presets_label"),
+            options,
+            selected,
+            |c: &String| match c.as_str() {
+                ORYXIS => crate::i18n::t("hotkey_preset_oryxis").to_string(),
+                CUSTOM => crate::i18n::t("hotkey_preset_custom").to_string(),
+                other => other.trim_start_matches("preset:").to_string(),
+            },
+            200.0,
+            |c: String| {
+                let preset = ShortcutPreset::available()
+                    .iter()
+                    .copied()
+                    .find(|p| c == format!("preset:{}", p.name()));
+                Message::Settings(SettingsMessage::HotkeyPresetPicked(preset))
+            },
+        )
+    }
+
+    /// One of the whole-set buttons under the preset selector.
+    fn hotkey_set_button(&self, label_key: &'static str, msg: SettingsMessage) -> Element<'_, Message> {
+        self.settings_nav_slot_labeled(
+            crate::i18n::t(label_key),
+            crate::keynav::RowAction::activate(Message::Settings(msg.clone())),
+            6.0,
+            styled_button(
+                crate::i18n::t(label_key),
+                Message::Settings(msg),
+                OryxisColors::t().bg_selected,
+            ),
+        )
     }
 
     /// One chord chip in the Shortcuts editor: the badge cluster on a

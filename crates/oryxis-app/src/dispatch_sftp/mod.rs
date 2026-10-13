@@ -318,6 +318,8 @@ impl Oryxis {
             | SftpMessage::SftpNameUnhovered(..)
             | SftpMessage::SftpSlowRenameFire(..)
             | SftpMessage::SftpMouseLeftPressed
+            | SftpMessage::SftpRowPressed(..)
+            | SftpMessage::SftpParentRowClicked(..)
             | SftpMessage::SftpSelectRow(..)) => self
                 .handle_sftp_selection(m)
                 .unwrap_or_else(crate::dispatch::unrouted),

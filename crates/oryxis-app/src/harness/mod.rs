@@ -531,6 +531,9 @@ where
     /// Parses and executes one `.ice` instruction line, recording it
     /// in the session history when it actually ran.
     fn run_line(&mut self, program: &P, line: &str) -> RunOutcome {
+        if let Some(target) = line.strip_prefix("click double ") {
+            return self.run_double_click(program, line, target);
+        }
         let instruction = match Instruction::parse(line) {
             Ok(instruction) => instruction,
             Err(error) => return RunOutcome::Parse(error.to_string()),
@@ -600,6 +603,36 @@ where
             }
             Pump::Timeout => {
                 self.history.push(instruction.to_string());
+                RunOutcome::Timeout
+            }
+            Pump::Failed(instruction) => RunOutcome::Failed(instruction),
+            Pump::Closed => RunOutcome::Closed,
+        }
+    }
+
+    /// `click double <target>`: both clicks of a double click, back to
+    /// back on the same drawn frame, with no update in between: what a
+    /// real double click looks like to a UI that draws once per frame.
+    /// Two `click` lines cannot stand in for it: each draws a frame and
+    /// waits for the app to settle first, so the gap between the presses
+    /// is whatever that took, inside the system interval on a fast
+    /// machine and outside it on a loaded CI runner. Recorded verbatim,
+    /// so `save` replays it as one instruction.
+    fn run_double_click(&mut self, program: &P, line: &str, target: &str) -> RunOutcome {
+        let instruction = match Instruction::parse(&format!("click {target}")) {
+            Ok(instruction) => instruction,
+            Err(error) => return RunOutcome::Parse(error.to_string()),
+        };
+        self.present_frame(program);
+        self.emulator.run(program, &instruction);
+        self.emulator.run(program, &instruction);
+        match self.pump_until_ready(program, self.timeout) {
+            Pump::Ready => {
+                self.history.push(line.to_owned());
+                RunOutcome::Done
+            }
+            Pump::Timeout => {
+                self.history.push(line.to_owned());
                 RunOutcome::Timeout
             }
             Pump::Failed(instruction) => RunOutcome::Failed(instruction),

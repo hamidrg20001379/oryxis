@@ -211,6 +211,11 @@ pub(crate) enum ModalSurface {
     /// while no prompt of its own (host key, command proxy, the
     /// keyboard-interactive form) owns the keyboard.
     ConnectProgress,
+    /// The boot error screen (`view_vault_open_failed`), the whole window
+    /// while no vault could be opened: the rebuild of a damaged file and
+    /// the restart after it. No default row, so Enter acts only on a row
+    /// the keyboard ringed and never starts a rebuild by itself.
+    VaultOpenFailed,
 }
 
 /// Selection + per-frame row recording for the modal layer.

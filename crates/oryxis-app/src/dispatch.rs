@@ -112,8 +112,9 @@ impl Oryxis {
         // without touching individual handlers.
         if matches!(
             message,
-            Message::Terminal(TerminalMessage::KeyboardEvent(_))
-                | Message::Tabs(TabsMessage::MouseMoved(_))
+            Message::Terminal(
+                TerminalMessage::KeyboardEvent(_) | TerminalMessage::KeyboardEventCaptured(_)
+            ) | Message::Tabs(TabsMessage::MouseMoved(_))
                 | Message::Sftp(SftpMessage::SftpMouseLeftPressed)
                 | Message::Terminal(TerminalMessage::TerminalImeCommit(_))
         ) {
@@ -536,6 +537,14 @@ impl Oryxis {
                     Ok(task) => task,
                     Err(ke) => self.handle_terminal(TerminalMessage::KeyboardEvent(ke)),
                 }
+            }
+            // A key a focused text input already consumed skips the SFTP
+            // list router: Left / Right moved the caret, Backspace deleted
+            // a character, Ctrl+A selected the field's text. Before, the
+            // router acted on the list as well (Left in the Local filter
+            // also sent the pane up a folder).
+            Message::Terminal(TerminalMessage::KeyboardEventCaptured(ke)) => {
+                self.handle_terminal(TerminalMessage::KeyboardEvent(ke))
             }
             Message::Terminal(m) => self.handle_terminal(m),
             // Cross-cutting globals (handled outside any single domain).

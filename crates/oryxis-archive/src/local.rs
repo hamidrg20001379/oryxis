@@ -12,6 +12,7 @@ use std::path::{Component, Path};
 
 use crate::ArchiveError;
 use crate::names::ArchiveKind;
+use crate::zip_entry_label;
 
 /// Extract `archive` into `dest` (created if missing; the caller picks
 /// a fresh directory name). Format from `kind`; local extraction
@@ -44,7 +45,7 @@ fn extract_zip(archive: &Path, dest: &Path) -> Result<(), ArchiveError> {
         if entry.encrypted() {
             return Err(ArchiveError::Unsupported(format!(
                 "entry is password-protected: {}",
-                entry.name()
+                zip_entry_label(&entry)
             )));
         }
         // `enclosed_name` is the zip-slip guard: it refuses absolute
@@ -53,7 +54,7 @@ fn extract_zip(archive: &Path, dest: &Path) -> Result<(), ArchiveError> {
         let Some(rel) = entry.enclosed_name() else {
             return Err(ArchiveError::Unsupported(format!(
                 "entry path escapes the archive root: {}",
-                entry.name()
+                zip_entry_label(&entry)
             )));
         };
         let target = dest.join(rel);
@@ -88,7 +89,7 @@ fn extract_zip(archive: &Path, dest: &Path) -> Result<(), ArchiveError> {
             {
                 return Err(ArchiveError::Unsupported(format!(
                     "symlink target escapes the archive root: {} -> {link_target}",
-                    entry.name()
+                    zip_entry_label(&entry)
                 )));
             }
             std::os::unix::fs::symlink(&link_target, &target)?;

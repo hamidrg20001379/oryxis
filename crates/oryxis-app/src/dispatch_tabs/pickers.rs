@@ -107,6 +107,8 @@ impl Oryxis {
             }
             TabsMessage::TabJumpSearchChanged(v) => {
                 self.tab_jump_search = v;
+                // A new query is a new list: see `PaletteQueryChanged`.
+                self.keynav.modal.selected = None;
             }
             TabsMessage::TabJumpSelect(inner) => {
                 self.panels.tab_jump = false;
@@ -132,6 +134,13 @@ impl Oryxis {
             }
             TabsMessage::PaletteQueryChanged(v) => {
                 self.palette.query = v;
+                // A new query is a new list, so a row picked in the old
+                // one no longer names anything. Kept, it would also hold
+                // whatever row slid under a mouse at rest while the list
+                // shrank (each row arms its hover), and past the end of
+                // the shorter list the ring draws nowhere while Enter,
+                // clamping, would run the LAST row, not the top match.
+                self.keynav.modal.selected = None;
             }
             TabsMessage::PaletteActivate(inner) => {
                 // Two-step dispatch like TabJumpSelect: close first, then

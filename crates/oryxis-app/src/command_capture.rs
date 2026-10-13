@@ -36,8 +36,6 @@
 use crate::state::{InbandCapture, Pane, PendingCapture, PromptState};
 use oryxis_terminal::{PositionedShellMark, ShellMark};
 
-const MAX_COPY_COMMAND_LINES: usize = 200;
-
 /// Upper bound on a recorded command. Anything longer is a paste blob, not a
 /// command worth resurfacing in the History tab.
 const MAX_COMMAND: usize = 4096;
@@ -203,33 +201,6 @@ pub(crate) fn observe_output_marks(
     captured
 }
 
-/// Read the latest command and the output that followed it from the grid.
-/// The anchor is the `OutputStart` row, so the command text is supplied by
-/// shell integration and the grid contributes only that command's output.
-pub(crate) fn copy_command_output(
-    term: &oryxis_terminal::TerminalState,
-    anchor: i64,
-    command: &str,
-) -> Option<String> {
-    let region = term.text_from_abs(anchor, MAX_COPY_COMMAND_LINES)?;
-    let last_content = region.lines.iter().rposition(|line| !line.trim().is_empty());
-    let body_end = last_content.map_or(0, |i| {
-        let line = &region.lines[i];
-        if i > 0
-            && ((region.cursor_line == Some(i) && line_could_be_prompt(line))
-                || line_is_bare_prompt(line))
-        {
-            i
-        } else {
-            i + 1
-        }
-    });
-    let mut out = Vec::with_capacity(body_end + 1);
-    out.push(command.to_string());
-    out.extend(region.lines.into_iter().take(body_end));
-    Some(out.join("\n"))
-}
-
 /// Final gate before a command reaches the vault. Refuses the
 /// `HISTCONTROL=ignorespace` convention (leading space = keep out of
 /// history), blank lines, paste blobs past [`MAX_COMMAND`] and anything
@@ -372,16 +343,6 @@ mod tests {
         assert!(term.is_alt_screen(), "the test must run under the alt screen");
         assert_eq!(cmds, vec!["systemctl restart nginx".to_string()]);
         assert!(inband.seen);
-    }
-
-    #[test]
-    fn copy_command_output_keeps_the_command_and_drops_the_returned_prompt() {
-        let mut term = oryxis_terminal::TerminalState::new_no_pty(80, 24).unwrap();
-        term.process(b"result\r\nprompt$ ");
-        let prompt_row = term.abs_cursor_logical_start().expect("cursor row");
-        let copied = copy_command_output(&term, prompt_row - 1, "echo result")
-            .expect("output row remains addressable");
-        assert_eq!(copied, "echo result\nresult");
     }
 
     /// Output cannot put words in the user's history. A history row is one

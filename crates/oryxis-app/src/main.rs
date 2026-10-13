@@ -20,6 +20,7 @@ mod chat_persist;
 mod command_capture;
 mod connect_methods;
 mod deep_link;
+mod double_click;
 mod dialog_warmup;
 mod dispatch;
 mod dispatch_ai;

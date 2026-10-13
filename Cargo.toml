@@ -72,11 +72,7 @@ vte = "0.15"
 # PTY
 portable-pty = "0.9"
 
-# Font shaping
-cosmic-text = "0.18"
-
 # Crypto
-age = "0.11"
 # Pinned exact: this is the KDF the vault master key and the sync group
 # secret are derived with, so the version is part of the format. 0.6's
 # defaults are identical to 0.5's (Argon2id v0x13, 19 MiB, t=2, p=1,
@@ -115,7 +111,6 @@ rcgen = { version = "0.14", default-features = false, features = ["pem", "aws_lc
 mdns-sd = "0.21"
 x25519-dalek = { version = "3", features = ["static_secrets", "getrandom"] }
 ed25519-dalek = { version = "3", features = ["rand_core", "serde"] }
-rand = "0.8"
 base64 = "0.23"
 # The sync wire codec. bincode, which defined the format, is no longer
 # maintained; wincode writes the same bytes (`wire_golden` pins every
@@ -134,7 +129,6 @@ tokio-stream = "0.1"
 # Serialization
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-toml = "0.8"
 
 # Utils
 uuid = { version = "1", features = ["v4", "serde"] }

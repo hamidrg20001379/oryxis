@@ -53,6 +53,11 @@ impl Oryxis {
         if self.editing_hotkey.is_some() {
             return None;
         }
+        // No vault could be opened: the error screen is the whole window,
+        // and nothing else can be on it.
+        if self.vault.is_none() && self.vault_ui.state == crate::state::VaultState::Loading {
+            return Some((ModalSurface::VaultOpenFailed, SurfaceFamily::Confirm));
+        }
         if let Some(ov) = &self.overlay {
             let family = match &ov.content {
                 // Hover popover and the floating search field have no
@@ -139,6 +144,11 @@ impl Oryxis {
                     // action, so a stray Enter never hands a remote
                     // host's URL to the browser.
                     | Modal::TerminalLinkConfirm
+                    // "Save Output As...": Clipboard is the default-ringed
+                    // row. The user asked for it, nothing in it destroys
+                    // anything, and it is the one answer that finishes
+                    // without a second dialog.
+                    | Modal::TerminalSaveOutput
                     // The update offer: Later is the default-ringed row
                     // in every state, so a stray Enter on a dialog that
                     // opened itself neither downloads nor restarts.

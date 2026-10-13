@@ -42,6 +42,7 @@ impl Oryxis {
             Modal::AgentConfirm => self.agent.pending_confirm.is_some(),
             Modal::TriggerConfirm => self.trigger_confirm.is_some(),
             Modal::TerminalLinkConfirm => self.link_confirm.is_some(),
+            Modal::TerminalSaveOutput => self.save_output.is_some(),
             Modal::TerminalThemeGallery => self.panels.terminal_theme_gallery,
             Modal::UiThemeGallery => self.panels.ui_theme_gallery,
             Modal::ThemeEditor => self.theme_ui.editor.is_some(),
@@ -163,6 +164,8 @@ impl Oryxis {
             // next click on the link asks again, which is right for a
             // question about one specific target.
             Modal::TerminalLinkConfirm => self.link_confirm = None,
+            // Esc saves nothing and drops the parked buffer.
+            Modal::TerminalSaveOutput => self.save_output = None,
             Modal::ThemeEditor => {
                 self.theme_ui.editor = None;
                 self.theme_ui.color_popover = None;

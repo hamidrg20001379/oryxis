@@ -1257,6 +1257,9 @@ pub struct Oryxis {
     /// The pending "open this link?" question raised by a Ctrl+click in
     /// a REMOTE pane (`Modal::TerminalLinkConfirm` while `Some`).
     pub(crate) link_confirm: Option<crate::dispatch_terminal::LinkConfirmCard>,
+    /// A pane's buffer waiting for "Save Output As..." to be told where it
+    /// goes (`Modal::TerminalSaveOutput` while `Some`).
+    pub(crate) save_output: Option<crate::dispatch_terminal::SaveOutputCard>,
     /// Monotonic launch counter feeding the generation in
     /// `remote_desktop_forwards`; bumped once per Open.
     pub(crate) remote_desktop_seq: u64,

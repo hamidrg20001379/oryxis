@@ -497,6 +497,81 @@ impl Oryxis {
         .boxed()
     }
 
+    /// "Save Output As...": where a pane's buffer, already read, goes.
+    pub(crate) fn build_save_output_dialog<'a>(
+        &'a self,
+        card: &'a crate::dispatch_terminal::SaveOutputCard,
+    ) -> Element<'a, Message> {
+        use crate::dispatch_terminal::SaveOutputDestination;
+        self.modal_nav_reset();
+        let info = column![
+            text(crate::i18n::t("terminal_save_output_title"))
+                .size(16)
+                .color(OryxisColors::t().text_primary),
+            Space::new().height(6),
+            text(
+                crate::i18n::t("terminal_save_output_body")
+                    .replace("{lines}", &card.lines.to_string())
+                    .replace("{host}", &card.host_label)
+            )
+            .size(13)
+            .color(OryxisColors::t().text_secondary),
+        ];
+        let to = |dest| Message::Terminal(TerminalMessage::TerminalSaveOutputTo(dest));
+        let buttons = crate::widgets::dir_row(vec![
+            self.modal_nav_slot(
+                crate::keynav::RowAction::activate(Message::Terminal(
+                    TerminalMessage::TerminalSaveOutputCancel,
+                )),
+                6.0,
+                false,
+                styled_button(
+                    crate::i18n::t("cancel"),
+                    Message::Terminal(TerminalMessage::TerminalSaveOutputCancel),
+                    OryxisColors::t().bg_hover,
+                ),
+            ),
+            Space::new().width(Length::Fill).boxed(),
+            self.modal_nav_slot_default(
+                crate::keynav::RowAction::activate(to(SaveOutputDestination::Clipboard)),
+                6.0,
+                true,
+                styled_button(
+                    crate::i18n::t("terminal_save_output_clipboard"),
+                    to(SaveOutputDestination::Clipboard),
+                    OryxisColors::t().accent,
+                ),
+            ),
+            Space::new().width(8).boxed(),
+            self.modal_nav_slot(
+                crate::keynav::RowAction::activate(to(SaveOutputDestination::File)),
+                6.0,
+                false,
+                styled_button(
+                    crate::i18n::t("terminal_save_output_file"),
+                    to(SaveOutputDestination::File),
+                    OryxisColors::t().bg_hover,
+                ),
+            ),
+        ]);
+
+        container(
+            column![info, Space::new().height(16), buttons]
+                .padding(24)
+                .width(420),
+        )
+        .style(|_| container::Style {
+            background: Some(Background::Color(OryxisColors::t().bg_surface)),
+            border: Border {
+                radius: Radius::from(12.0),
+                color: OryxisColors::t().border,
+                width: 1.0,
+            },
+            ..Default::default()
+        })
+        .boxed()
+    }
+
     /// The one-entry Import hub (owner call: ONE standardized import):
     /// names every supported source, and the "Choose file" picker's
     /// result is format-detected from its content, so the user never

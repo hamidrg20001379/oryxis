@@ -15,7 +15,7 @@ thiserror = { workspace = true }
 # recovery via ZRPOS, the 4 GiB offset guard). The `[patch]` that pinned
 # our fork while those were in review is gone: the published crate is now
 # byte-identical to upstream main.
-zmodem2 = "0.7.2"
+zmodem2 = "0.7.3"
 
 [dev-dependencies]
 # test-util enables tokio::time::pause so the silent-peer retry test

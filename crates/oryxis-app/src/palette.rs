@@ -102,8 +102,8 @@ fn hotkey_category(action: HotkeyAction) -> PaletteCategory {
         | FocusSidebarList
         | ToggleSidebar | ToggleSidebarOther | ToggleTabFiles | ToggleBroadcastInput | TerminalCopy
         | TerminalPaste | TerminalPasteSelection | TerminalSelectAll | ScrollbackPageUp
-        | ScrollbackPageDown | TerminalCopyLastCommand | TerminalCopyScreen
-        | TerminalClearScrollback => {
+        | ScrollbackPageDown | TerminalSaveOutput | TerminalCopyScreen | TerminalClearScrollback
+        | TerminalContextMenu => {
             PaletteCategory::Terminal
         }
         OpenSettings => PaletteCategory::Settings,

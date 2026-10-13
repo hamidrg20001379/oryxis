@@ -265,6 +265,11 @@ coming next, see the [Roadmap](../README.md#roadmap).
   feeds the tray submenu and the Windows JumpList.
 - **Copy Screen.** The terminal's context menu (or the tab menu, under
   the other right-click schemes) copies the screen exactly as drawn.
+- **Save Output As.** The same menus take the pane's whole buffer,
+  scrollback included, to the clipboard or to a text file, the way
+  Terminal.app's Export Text and Konsole's Save Output do; the text is
+  read at the click, so a session that keeps printing doesn't change
+  what you saved.
 - **Syntax highlighting.** IPs, URLs, and file paths auto-detected and
   colored.
 - **Clickable links, including the ones that log in.** Ctrl+click follows
@@ -913,7 +918,7 @@ the app's own actions sit on `Ctrl+Shift`.
 | `Alt+Left` / `Alt+Right` | Cycle tabs |
 | `Ctrl+1...9` | Switch to tab 1-9 |
 | `Ctrl+Shift+C` / `Ctrl+Shift+V` | Copy / paste in the terminal |
-| `Ctrl+Alt+A` / `Ctrl+Alt+S` | Copy the last command + output / copy its screen |
+| `Menu` (the context-menu key) | Open the terminal's context menu at the text cursor, whatever the right-click setting |
 | `Ctrl+Shift+W` | Close tab |
 | `Ctrl+Shift+Y` | Reopen the last closed tab |
 | `Ctrl+Shift+R` | Reconnect the active tab |
@@ -932,8 +937,17 @@ the app's own actions sit on `Ctrl+Shift`.
 | `Ctrl+,` | Settings |
 | `Ctrl+= / Ctrl+- / Ctrl+0` | Zoom the terminal font for the session (also `Ctrl+Wheel` and the touchpad pinch, one chord of its own with a switch beside the font size) |
 
+Settings > Shortcuts also starts from another terminal's keys (Tabby on
+every platform, iTerm2 on macOS), taken from each app's shipped defaults:
+only the actions that terminal has a key for change, mouse and wheel
+gestures stay, and the confirm names any action left without a shortcut.
+Export… and Import… carry your shortcuts to another machine as a small
+JSON file.
+
 Some verbs ship with no chord at all and wait in Settings > Shortcuts
 for one: move the tab to a new window, duplicate it in a new window,
 rename or pin it, copy its host address, close the other tabs or all of
-them, and lock the vault. The command palette
-lists them either way.
+them, save the pane's output or copy its screen, clear its scrollback,
+and lock the vault. No terminal or browser agrees on a key for any of
+these, so the choice is yours; the command palette lists them either
+way.

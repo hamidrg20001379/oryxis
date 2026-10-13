@@ -355,11 +355,13 @@ impl Oryxis {
     /// host-picker chip; for a Local pane it reads "Local", for a remote
     /// pane it reads the mounted host label.
     /// Wrap a row so a left press landing inside its on-screen bounds
-    /// writes the row's identity into `row_press`, where the press
-    /// handler takes it to arm a drag. The test happens in the widget
-    /// `update`, where scrollables translate the cursor into content
-    /// space, so it stays correct with the list scrolled or panned
-    /// (issue #127: draw-time rects recorded here did not).
+    /// (1) writes the row's identity into `row_press`, where the global
+    /// press handler takes it to arm a drag, and (2) publishes
+    /// `SftpRowPressed` with the press position, ahead of the row's own
+    /// release, for the double-click judgement. The test happens in the
+    /// widget `update`, where scrollables translate the cursor into
+    /// content space, so it stays correct with the list scrolled or
+    /// panned (issue #127: draw-time rects recorded here did not).
     fn record_sftp_row_hit<'a>(
         &self,
         side: SftpPaneSide,
@@ -367,11 +369,13 @@ impl Oryxis {
         is_dir: bool,
         row: Element<'a, Message>,
     ) -> Element<'a, Message> {
-        crate::widgets::press_hit_reporter(
-            row,
-            self.cur_sftp().row_press.clone(),
-            (side, path.to_string(), is_dir),
-        )
+        let cell = self.cur_sftp().row_press.clone();
+        let hit = (side, path.to_string(), is_dir);
+        let key = crate::state::SftpClickKey::Entry(side, path.to_string());
+        crate::widgets::press_tap(row, move |at, shell| {
+            *cell.borrow_mut() = Some(hit.clone());
+            shell.publish(Message::Sftp(SftpMessage::SftpRowPressed(key.clone(), at)));
+        })
     }
 
     fn view_sftp_pane(&self, side: SftpPaneSide) -> Element<'_, Message> {

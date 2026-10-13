@@ -342,6 +342,8 @@ impl Oryxis {
                 SidebarFilesMessage::SidebarFilesRowHovered(..)
                 | SidebarFilesMessage::SidebarFilesRowUnhovered(..)
                 | SidebarFilesMessage::SidebarFilesSelectRow(..)
+                | SidebarFilesMessage::SidebarFilesRowPressed(..)
+                | SidebarFilesMessage::SidebarFilesSelectParent
                 | SidebarFilesMessage::SidebarFilesToggleFollow
                 | SidebarFilesMessage::SidebarFilesToggleHidden
                 | SidebarFilesMessage::SidebarFilesRefresh

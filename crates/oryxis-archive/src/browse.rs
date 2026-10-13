@@ -12,6 +12,7 @@ use std::sync::atomic::AtomicU64;
 
 use crate::ArchiveError;
 use crate::ranged::{CachedRangeReader, RangedSource};
+use crate::zip_entry_label;
 
 /// Chunk geometry for the underlying reader: a few times the SFTP
 /// 255 KiB per-request ceiling, with enough slots that the central
@@ -73,7 +74,10 @@ pub fn read_index<S: RangedSource>(src: S) -> Result<ZipIndex, ArchiveError> {
         let entry = archive
             .by_index_raw(i)
             .map_err(|e| ArchiveError::Malformed(format!("zip entry {i}: {e}")))?;
-        let Some(name) = normalize_entry_name(entry.name()) else {
+        let raw_name = entry
+            .name()
+            .map_err(|e| ArchiveError::Malformed(format!("zip entry {i} name: {e}")))?;
+        let Some(name) = normalize_entry_name(&raw_name) else {
             index.skipped_unsafe += 1;
             continue;
         };
@@ -247,14 +251,14 @@ impl<S: RangedSource> ZipReader<S> {
         if entry.encrypted() {
             return Err(ArchiveError::Unsupported(format!(
                 "entry is password-protected: {}",
-                entry.name()
+                zip_entry_label(&entry)
             )));
         }
         let mut buf = vec![0u8; 64 * 1024];
         let mut total = 0u64;
         loop {
             let n = entry.read(&mut buf).map_err(|e| {
-                ArchiveError::Malformed(format!("decompress {}: {e}", entry.name()))
+                ArchiveError::Malformed(format!("decompress {}: {e}", zip_entry_label(&entry)))
             })?;
             if n == 0 {
                 break;

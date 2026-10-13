@@ -33,6 +33,12 @@ pub enum SidebarFilesMessage {
     /// Left-click on a row: single-click selects it (highlight); a quick
     /// double-click on a directory enters it.
     SidebarFilesSelectRow(String, bool),
+    /// A left press landed on a row, at this (content-space) position.
+    /// Published ahead of the row's own press message and judged there
+    /// against the previous press for a double click.
+    SidebarFilesRowPressed(crate::state::FilesClickKey, iced::Point),
+    /// Left-click on the `..` row: selects it; a double click goes up.
+    SidebarFilesSelectParent,
     /// Right-click on a sidebar Files row: open its context menu
     /// (full path + is_dir), anchored at the cursor.
     ShowSidebarFilesRowMenu(String, bool),

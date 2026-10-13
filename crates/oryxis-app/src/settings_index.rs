@@ -251,6 +251,8 @@ pub(crate) static SETTINGS_INDEX: &[SettingsIndexEntry] = &[
     e(S::Mcp, "mcp_token_regenerate", "mcp token regenerate rotate reset auth"),
     e(S::Mcp, "mcp_clients_label", "mcp install client claude code desktop codex cursor gemini copilot windsurf config register"),
     // ── SFTP ───────────────────────────────────────────────────────
+    e(S::Sftp, "setting_sftp_dir_double_click", "sftp double click folder directory open enter transfer filezilla action"),
+    e(S::Sftp, "setting_sftp_file_double_click", "sftp double click file open edit transfer download upload filezilla action"),
     e(S::Sftp, "setting_sftp_console_layout", "sftp console placement split pane beside below maximized zoom full tab"),
     e(S::Sftp, "setting_default_editor", "sftp default editor external open program"),
     e(S::Sftp, "setting_sftp_ask_download_dir", "sftp download destination folder ask where save prompt zmodem rz sz terminal"),
@@ -297,6 +299,9 @@ pub(crate) static SETTINGS_INDEX: &[SettingsIndexEntry] = &[
     // ── Shortcuts ──────────────────────────────────────────────────
     e(S::Shortcuts, "tab_slot_includes_home", "ctrl digit tab slot home first number offset shortcut"),
     e(S::Shortcuts, "hotkey_reset_all", "reset all shortcuts hotkeys defaults keybindings"),
+    e(S::Shortcuts, "hotkey_presets_label", "preset keymap layout tabby iterm2 other terminal keys shortcuts"),
+    e(S::Shortcuts, "hotkey_export", "export save shortcuts hotkeys keybindings file backup"),
+    e(S::Shortcuts, "hotkey_import", "import load shortcuts hotkeys keybindings file restore"),
     // ── Cloud ──────────────────────────────────────────────────────
     e(S::Cloud, "settings_cloud_auto_refresh", "cloud auto refresh profiles discover"),
     e(S::Cloud, "settings_cloud_auto_refresh_interval", "cloud refresh interval minutes"),

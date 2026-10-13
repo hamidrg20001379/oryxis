@@ -551,6 +551,11 @@ pub(crate) struct AppPrefs {
     /// is a pane of that tab, so the Terminal / Console / SFTP switch
     /// works the same whichever one the user picked.
     pub(crate) sftp_console_layout: crate::state::SftpConsoleLayout,
+    /// What a double click or Enter does on a folder / a file in the
+    /// dual-pane SFTP browser (FileZilla's two "Double-click action"
+    /// choices). The `..` row always goes up.
+    pub(crate) sftp_dir_double_click: crate::state::SftpDirDoubleClick,
+    pub(crate) sftp_file_double_click: crate::state::SftpFileDoubleClick,
     /// TCP connect + SSH transport handshake timeout, in seconds.
     pub(crate) sftp_connect_timeout: String,
     /// Authentication phase timeout, in seconds.
@@ -746,6 +751,8 @@ impl Default for AppPrefs {
             sftp_ask_download_dir: false,
             sftp_upload_temp_name: false,
             sftp_console_layout: crate::state::SftpConsoleLayout::default(),
+            sftp_dir_double_click: crate::state::SftpDirDoubleClick::default(),
+            sftp_file_double_click: crate::state::SftpFileDoubleClick::default(),
             sftp_connect_timeout: "15".into(),
             sftp_auth_timeout: "30".into(),
             sftp_session_timeout: "10".into(),

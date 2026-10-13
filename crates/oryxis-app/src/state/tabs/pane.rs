@@ -311,6 +311,14 @@ impl TerminalTransport {
 /// multiplexed on this pane's SSH session plus the browsing state.
 /// The channel dies with the session, so `SshDisconnected` resets the
 /// whole struct (keeping only the user's follow / hidden preferences).
+/// A row of the sidebar Files browser as the double-click detector sees
+/// it: the `..` row has no path of its own.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum FilesClickKey {
+    Parent,
+    Entry(String),
+}
+
 #[derive(Default)]
 pub(crate) struct PaneFiles {
     /// The browser's backend: the SFTP channel on this pane's live
@@ -371,9 +379,18 @@ pub(crate) struct PaneFiles {
     /// pane's `selection_anchor`); follows the last click that set a
     /// single selection or toggled a row.
     pub selection_anchor: Option<String>,
-    /// Timestamp + path of the last single click, for double-click
-    /// detection (matching the SFTP pane's rule).
-    pub last_click: Option<(std::time::Instant, String)>,
+    /// Judges each row press against the previous one, on the OS's
+    /// double-click terms (`crate::double_click`, the SFTP pane's rule).
+    /// Fed by `SidebarFilesRowPressed`, which the row publishes ahead of
+    /// its own press message.
+    pub click_tracker: crate::double_click::ClickTracker<FilesClickKey>,
+    /// What the last row press was, for the row message that follows it
+    /// (taken only when the key matches).
+    pub press_verdict: Option<(FilesClickKey, crate::double_click::ClickReport)>,
+    /// The `..` row is the selection: a single click put it there (a
+    /// double click goes up). Drawn only while no entry is selected, and
+    /// cleared by a click on any entry and by every way out of the folder.
+    pub parent_selected: bool,
     /// This browser's own transfer, run by the same queue machinery the
     /// dual-pane SFTP surface uses.
     ///
@@ -419,7 +436,8 @@ impl PaneFiles {
         self.path_history_open = false;
         self.selected.clear();
         self.selection_anchor = None;
-        self.last_click = None;
+        self.click_tracker.reset();
+        self.parent_selected = false;
     }
 
     /// Record an adopted directory in the combo-box history: most
@@ -749,12 +767,6 @@ pub(crate) struct Pane {
     /// Smart tabs: the last command line the input capture saw submitted,
     /// consumed by the next `OutputStart` to label `running_cmd`.
     pub last_submitted: Option<String>,
-    /// Latest completed shell command plus its output, ready for the
-    /// copy-last-command shortcut.
-    pub last_command_output: Option<String>,
-    /// Command currently being assembled for the copy-last-command action:
-    /// `(output_start_row, command_text)`.
-    pub command_copy_pending: Option<(i64, String)>,
     /// Smart tabs: why this pane's tab wants the user's eye (attention
     /// dot on the tab strip); the tab shows its panes' highest-priority
     /// cause. Cleared when the tab is viewed.
@@ -962,8 +974,6 @@ impl Pane {
             progress: None,
             running_cmd: None,
             last_submitted: None,
-            last_command_output: None,
-            command_copy_pending: None,
             attention: None,
             last_output: None,
             zmodem_detector: oryxis_zmodem::ZmodemDetector::new(),

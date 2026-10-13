@@ -253,6 +253,103 @@ impl SftpConsoleLayout {
     }
 }
 
+/// What a double click (or Enter) on a FOLDER does in the dual-pane SFTP
+/// browser: FileZilla's "Double-click action on directories", whose
+/// three choices these are (its fourth, "Add to queue", needs a queue
+/// that waits for a start, which this browser's does not have). A zip
+/// the browser can open counts as a folder here, so "Enter" browses it.
+/// The `..` row is outside the choice and always goes up, as it is in
+/// FileZilla.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum SftpDirDoubleClick {
+    /// Open the folder in its pane.
+    #[default]
+    Enter,
+    /// Send it to the other pane (upload, download or relay).
+    Transfer,
+    /// Nothing: the row only stays selected.
+    Nothing,
+}
+
+impl SftpDirDoubleClick {
+    /// Every action, in picker order.
+    pub const ALL: [SftpDirDoubleClick; 3] = [
+        SftpDirDoubleClick::Enter,
+        SftpDirDoubleClick::Transfer,
+        SftpDirDoubleClick::Nothing,
+    ];
+
+    /// Stable code persisted in the `sftp_dir_double_click` setting.
+    pub fn code(self) -> &'static str {
+        match self {
+            SftpDirDoubleClick::Enter => "enter",
+            SftpDirDoubleClick::Transfer => "transfer",
+            SftpDirDoubleClick::Nothing => "nothing",
+        }
+    }
+
+    /// Parse a persisted code; an unknown one is `None` and the caller
+    /// keeps the default.
+    pub fn from_code(code: &str) -> Option<SftpDirDoubleClick> {
+        SftpDirDoubleClick::ALL.into_iter().find(|a| a.code() == code)
+    }
+
+    pub fn label_key(self) -> &'static str {
+        match self {
+            SftpDirDoubleClick::Enter => "sftp_double_click_enter",
+            SftpDirDoubleClick::Transfer => "sftp_double_click_transfer",
+            SftpDirDoubleClick::Nothing => "sftp_double_click_nothing",
+        }
+    }
+}
+
+/// What a double click (or Enter) on a FILE does in the dual-pane SFTP
+/// browser: FileZilla's "Double-click action on files", including its
+/// default (Transfer). "Open" is the browser's own open: the OS handler
+/// for a local file, edit-in-place for a remote one.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum SftpFileDoubleClick {
+    /// Send it to the other pane (upload, download or relay).
+    #[default]
+    Transfer,
+    /// Open it (local: the OS handler; remote: edit in place).
+    Open,
+    /// Nothing: the row only stays selected.
+    Nothing,
+}
+
+impl SftpFileDoubleClick {
+    /// Every action, in picker order.
+    pub const ALL: [SftpFileDoubleClick; 3] = [
+        SftpFileDoubleClick::Transfer,
+        SftpFileDoubleClick::Open,
+        SftpFileDoubleClick::Nothing,
+    ];
+
+    /// Stable code persisted in the `sftp_file_double_click` setting.
+    pub fn code(self) -> &'static str {
+        match self {
+            SftpFileDoubleClick::Transfer => "transfer",
+            SftpFileDoubleClick::Open => "open",
+            SftpFileDoubleClick::Nothing => "nothing",
+        }
+    }
+
+    /// Parse a persisted code; an unknown one is `None` and the caller
+    /// keeps the default.
+    pub fn from_code(code: &str) -> Option<SftpFileDoubleClick> {
+        SftpFileDoubleClick::ALL.into_iter().find(|a| a.code() == code)
+    }
+
+    pub fn label_key(self) -> &'static str {
+        match self {
+            SftpFileDoubleClick::Transfer => "sftp_double_click_transfer",
+            SftpFileDoubleClick::Open => "sftp_double_click_open",
+            SftpFileDoubleClick::Nothing => "sftp_double_click_nothing",
+        }
+    }
+}
+
 /// Which of a terminal tab's surfaces is on screen.
 ///
 /// The tab chip and the status-bar segments switch between these, and
@@ -723,7 +820,10 @@ impl SettingsSection {
 
 #[cfg(test)]
 mod tests {
-    use super::{SftpConsoleLayout, SidebarPlacement, TabSurface, TerminalSidebarTab};
+    use super::{
+        SftpConsoleLayout, SftpDirDoubleClick, SftpFileDoubleClick, SidebarPlacement, TabSurface,
+        TerminalSidebarTab,
+    };
 
     #[test]
     fn the_surface_chip_cycles_through_every_surface() {
@@ -769,6 +869,33 @@ mod tests {
             SftpConsoleLayout::SplitBelow.axis(),
         );
         assert!(!SftpConsoleLayout::SplitBelow.starts_maximized());
+    }
+
+    #[test]
+    fn double_click_action_codes_roundtrip() {
+        // Persisted codes resolve back exactly; junk is None so boot
+        // keeps the default instead of guessing.
+        for a in SftpDirDoubleClick::ALL {
+            assert_eq!(SftpDirDoubleClick::from_code(a.code()), Some(a));
+        }
+        for a in SftpFileDoubleClick::ALL {
+            assert_eq!(SftpFileDoubleClick::from_code(a.code()), Some(a));
+        }
+        assert_eq!(SftpDirDoubleClick::from_code("queue"), None);
+        assert_eq!(SftpFileDoubleClick::from_code(""), None);
+        // FileZilla's defaults: folders open, files transfer.
+        assert_eq!(SftpDirDoubleClick::default(), SftpDirDoubleClick::Enter);
+        assert_eq!(SftpFileDoubleClick::default(), SftpFileDoubleClick::Transfer);
+        // The pickers match by translated label, so two choices of one
+        // picker must never share a label key.
+        let dir: Vec<_> = SftpDirDoubleClick::ALL.iter().map(|a| a.label_key()).collect();
+        let file: Vec<_> = SftpFileDoubleClick::ALL.iter().map(|a| a.label_key()).collect();
+        for list in [&dir, &file] {
+            let mut sorted = list.to_vec();
+            sorted.sort();
+            sorted.dedup();
+            assert_eq!(sorted.len(), list.len());
+        }
     }
 
     #[test]

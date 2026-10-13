@@ -12,19 +12,16 @@ use std::time::Duration;
 use crate::app::{SftpMessage, Message, Oryxis};
 use crate::state::SftpPaneSide;
 
-/// Max gap between two clicks on the same folder to count as a double-click.
-/// Matches the Windows system default so slow double-clickers still land an
-/// "open" instead of falling through to selection (or worse, rename).
-const DOUBLE_CLICK_WINDOW: Duration = Duration::from_millis(500);
-/// Slow-click-to-rename arms no earlier than this after the previous click on
-/// the same row. The gap between DOUBLE_CLICK_WINDOW and here is a dead zone
-/// where a second click only re-selects: a sluggish double-click (intent:
-/// open) lands there and must never be read as an edit request. Explorer and
-/// Finder have no dead zone and famously do misread it, hence keeping ours.
-/// There is deliberately no upper bound, matching those two: a row that is
-/// still the lone selection stays renameable, and the other two gates (the
-/// name hit test and the cancellable deferral) are what keep the affordance
-/// from firing by accident.
+/// Slow-click-to-rename arms no earlier than this after the previous press on
+/// the same row, and never earlier than the system double-click interval
+/// (`slow_rename_after`). The gap between a double click and here is a dead
+/// zone where a second click only re-selects: a sluggish double-click
+/// (intent: open) lands there and must never be read as an edit request.
+/// Explorer and Finder have no dead zone and famously do misread it, hence
+/// keeping ours. There is deliberately no upper bound, matching those two: a
+/// row that is still the lone selection stays renameable, and the other two
+/// gates (the name hit test and the cancellable deferral) are what keep the
+/// affordance from firing by accident.
 const SLOW_RENAME_MIN: Duration = Duration::from_millis(900);
 /// How long an armed slow-click rename waits before it actually opens the
 /// inline editor. A further click inside this window bumps `click_gen` and
@@ -473,6 +470,47 @@ impl Oryxis {
                     self.arm_sftp_row_drag(side, path, is_dir);
                 }
             }
+            SftpMessage::SftpRowPressed(key, at) => {
+                // A Ctrl / Shift press builds a selection: it is never half
+                // of a double click, and it must not leave a stamp that turns
+                // the NEXT plain press into one.
+                if self.modifiers.control() || self.modifiers.command() || self.modifiers.shift() {
+                    self.sftp.click_tracker.reset();
+                    self.sftp.press_verdict = None;
+                    return Ok(Task::none());
+                }
+                let rule = crate::double_click::DoubleClickRule::os();
+                let report =
+                    self.sftp.click_tracker.press(key.clone(), at, std::time::Instant::now(), &rule);
+                self.sftp.press_verdict = Some((key, report));
+            }
+            SftpMessage::SftpParentRowClicked(side) => {
+                let verdict = self
+                    .sftp
+                    .press_verdict
+                    .take()
+                    .filter(|(key, _)| *key == crate::state::SftpClickKey::Parent(side))
+                    .map(|(_, report)| report);
+                // Like any click on a row, this one retires a rename armed by
+                // an earlier click.
+                self.sftp_click_gen = self.sftp_click_gen.wrapping_add(1);
+                self.sftp.pending_rename = None;
+                self.sftp.focused_side = side;
+                let plain = !(self.modifiers.control()
+                    || self.modifiers.command()
+                    || self.modifiers.shift());
+                if plain && verdict.is_some_and(|r| r.double) {
+                    // `..` is outside the double-click setting, as it is in
+                    // FileZilla: it always goes up.
+                    return Ok(Task::done(Message::Sftp(SftpMessage::SftpUp(side))));
+                }
+                // A single click selects `..` the way FileZilla does: the
+                // keyboard cursor parks on it, so Enter / Right go up and
+                // Down walks into the listing.
+                self.sftp.parent_cursor = true;
+                self.sftp.selected_rows.clear();
+                self.sftp.selection_anchor = None;
+            }
             SftpMessage::SftpSelectRow(side, path, is_dir) => {
                 // Arm a potential drag from the button's own press, before the
                 // selection below collapses, using the exact pressed row. A
@@ -499,20 +537,34 @@ impl Oryxis {
                 // Size / Modified columns or the slack past a short name is
                 // just a click), the release check below (a drag isn't a
                 // rename), and the deferred fire (a following click cancels).
-                let now = std::time::Instant::now();
+// What this press was, judged when it landed
+                // (`SftpRowPressed`, which the row publishes ahead of this
+                // release). Taken whatever happens below: a verdict belongs
+                // to one release only.
+                let verdict = self
+                    .sftp
+                    .press_verdict
+                    .take()
+                    .filter(|(key, _)| {
+                        *key == crate::state::SftpClickKey::Entry(side, path.clone())
+                    })
+                    .map(|(_, report)| report);
+                let is_double = !ctrl && !shift && verdict.is_some_and(|r| r.double);
+                let rule = crate::double_click::DoubleClickRule::os();
                 let already_sole = self.cur_sftp().selected_rows.as_slice() == [target.clone()];
                 let on_name = self
                     .sftp
                     .hovered_name
                     .as_ref()
                     .is_some_and(|(s, p)| *s == side && p == &path);
-                let slow_second = !ctrl
+                let slow_second = !is_double
+                    && !ctrl
                     && !shift
                     && already_sole
                     && on_name
-                    && self.cur_sftp().last_click.as_ref().is_some_and(|(s, p, t)| {
-                        *s == side && p == &path && now.duration_since(*t) >= SLOW_RENAME_MIN
-                    });
+                    && verdict
+                        .and_then(|r| r.gap)
+                        .is_some_and(|gap| gap >= slow_rename_after(&rule));
                 self.sftp.pending_rename =
                     slow_second.then(|| (side, path.clone()));
                 if shift {
@@ -550,59 +602,17 @@ impl Oryxis {
                         self.sftp.selected_rows.push(target.clone());
                     }
                     self.sftp.selection_anchor = Some(target);
-                } else if is_dir {
-                    // Single click selects the folder (so it can be the
-                    // type-ahead focus); a quick double click on the same
-                    // folder opens it.
-                    let now = std::time::Instant::now();
-                    let is_double = self.cur_sftp().last_click.as_ref().is_some_and(|(s, p, t)| {
-                        *s == side
-                            && p == &path
-                            && now.duration_since(*t) < DOUBLE_CLICK_WINDOW
-                    });
-                    if is_double {
-                        self.sftp.last_click = None;
-                        self.sftp.selected_rows.clear();
-                        self.sftp.selection_anchor = None;
-                        return Ok(if self.cur_sftp().pane(side).is_remote {
-                            Task::done(Message::Sftp(SftpMessage::SftpNavigateRemote(side, path)))
-                        } else {
-                            Task::done(Message::Sftp(SftpMessage::SftpNavigateLocal(
-                                side,
-                                std::path::PathBuf::from(path),
-                            )))
-                        });
-                    }
-                    self.sftp.last_click = Some((side, path, now));
+                } else if is_double {
+                    // FileZilla's activation: the row is the selection and
+                    // the double-click setting decides what happens to it
+                    // (open it, send it to the other pane, nothing). A
+                    // folder that opens takes the selection with it.
                     self.sftp.selected_rows = vec![target.clone()];
                     self.sftp.selection_anchor = Some(target);
+                    return Ok(self.sftp_activate_entry(side, path, is_dir, false));
                 } else {
-                    // Double-clicking a zip file enters it as a virtual
-                    // directory (browse without extracting). Only when
-                    // not already inside an archive: nested zips would
-                    // need decompressing the outer entry first, which
-                    // defeats the ranged-read model.
-                    let now = std::time::Instant::now();
-                    let is_double = self.cur_sftp().last_click.as_ref().is_some_and(|(s, p, t)| {
-                        *s == side
-                            && p == &path
-                            && now.duration_since(*t) < DOUBLE_CLICK_WINDOW
-                    });
-                    if is_double
-                        && self.cur_sftp().pane(side).zip.is_none()
-                        && matches!(
-                            oryxis_archive::names::ArchiveKind::from_name(
-                                &crate::dispatch_sftp_archive::base_name(&path)
-                            ),
-                            Some(oryxis_archive::names::ArchiveKind::Zip)
-                        )
-                    {
-                        self.sftp.last_click = None;
-                        self.sftp.selected_rows.clear();
-                        self.sftp.selection_anchor = None;
-                        return Ok(Task::done(Message::Sftp(SftpMessage::SftpZipOpen(side, path))));
-                    }
-                    self.sftp.last_click = Some((side, path, now));
+                    // A single click selects the row (folder or file), so it
+                    // can be the type-ahead focus and the menu's target.
                     self.sftp.selected_rows = vec![target.clone()];
                     self.sftp.selection_anchor = Some(target);
                 }
@@ -849,6 +859,7 @@ impl Oryxis {
                             | Named::ArrowRight
                             | Named::Enter
                             | Named::Tab
+                            | Named::Backspace
                     ) {
                         self.sftp.suppress_hover = true;
                     }
@@ -859,8 +870,14 @@ impl Oryxis {
                         // file it does nothing. Enter additionally opens files.
                         Named::ArrowRight => return Ok(self.sftp_activate_focused(false)),
                         Named::Enter => return Ok(self.sftp_activate_focused(true)),
-                        // Left goes to the parent directory.
-                        Named::ArrowLeft => return Ok(self.sftp_focus_parent()),
+                        // Left goes to the parent directory, and so does
+                        // Backspace (FileZilla's, Explorer's). Neither reaches
+                        // here while a text field has the focus: the field
+                        // captures them and `dispatch_message` keeps a
+                        // captured key away from this router.
+                        Named::ArrowLeft | Named::Backspace => {
+                            return Ok(self.sftp_focus_parent());
+                        }
                         // Tab switches the focused pane.
                         Named::Tab => return Ok(self.sftp_toggle_pane_focus()),
                         // F2 renames the selected row, the standard shortcut
@@ -1004,9 +1021,20 @@ fn slow_rename_still_valid(
         && matches!(selection, [(side, path)] if *side == target.0 && path == target.1)
 }
 
+/// How long after the previous press on a row a second plain press has to
+/// come to arm the slow-click rename: past the dead zone, and past the
+/// system's double-click interval, which a user can stretch to 5 s on
+/// Windows. One clock for both, and the double click always wins: a press
+/// inside the interval is a double click or nothing, never a rename.
+fn slow_rename_after(rule: &crate::double_click::DoubleClickRule) -> Duration {
+    SLOW_RENAME_MIN.max(rule.interval)
+}
+
 #[cfg(test)]
 mod tests {
-    use super::slow_rename_still_valid;
+    use super::{slow_rename_after, slow_rename_still_valid, SLOW_RENAME_MIN};
+    use crate::double_click::DoubleClickRule;
+    use std::time::Duration;
     use crate::state::SftpPaneSide::{Left, Right};
 
     fn sel(rows: &[(crate::state::SftpPaneSide, &str)]) -> Vec<(crate::state::SftpPaneSide, String)> {
@@ -1060,5 +1088,18 @@ mod tests {
             &sel(&[(Left, "/srv/a.conf")]),
             (Right, "/srv/a.conf"),
         ));
+    }
+
+    #[test]
+    fn the_rename_waits_out_the_system_double_click_interval() {
+        let rule = |ms| DoubleClickRule {
+            interval: Duration::from_millis(ms),
+            half_box: (2.0, 2.0),
+        };
+        // A default interval sits inside the dead zone: the zone decides.
+        assert_eq!(slow_rename_after(&rule(500)), SLOW_RENAME_MIN);
+        // A user who stretched the slider gets a rename only after it:
+        // a press inside the interval is a double click, never an edit.
+        assert_eq!(slow_rename_after(&rule(2_000)), Duration::from_millis(2_000));
     }
 }

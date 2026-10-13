@@ -210,6 +210,13 @@ libc = "0.2"
 [target.'cfg(not(target_os = "windows"))'.dependencies]
 notify-rust = "4.18.1"
 
+# `NSEvent.doubleClickInterval`, the "Double-click speed" slider the file
+# browsers judge a double click by (`double_click.rs`). objc2-app-kit is
+# already in the macOS build through winit, on the same 0.3 line, so this
+# names the one class it needs and adds no crate.
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2-app-kit = { version = "0.3", default-features = false, features = ["std", "NSEvent"] }
+
 # ShellExecuteW for the auto-updater. CreateProcess (what
 # `Command::new().spawn()` uses) ignores the installer manifest and fails
 # with ERROR_ELEVATION_REQUIRED (740) on the system NSIS .exe, which
@@ -224,7 +231,9 @@ notify-rust = "4.18.1"
 # tools panel's unprivileged ping / traceroute on Windows.
 # `Win32_Globalization` is GetOEMCP and MultiByteToWideChar, for the
 # console code page `ping` and `tracert` write their output in.
-windows-sys = { version = "0.61", features = ["Win32_UI_Shell", "Win32_UI_WindowsAndMessaging", "Win32_Foundation", "Win32_System_Threading", "Win32_System_Diagnostics_Debug", "Win32_Globalization", "Win32_Security", "Win32_Security_Authorization", "Win32_System_Pipes", "Win32_Storage_Packaging_Appx", "Win32_System_Registry", "Win32_NetworkManagement_IpHelper"] }
+# `Win32_UI_Input_KeyboardAndMouse` is GetDoubleClickTime, the interval
+# the file browsers judge a double click by (`double_click.rs`).
+windows-sys = { version = "0.61", features = ["Win32_UI_Shell", "Win32_UI_WindowsAndMessaging", "Win32_Foundation", "Win32_System_Threading", "Win32_System_Diagnostics_Debug", "Win32_Globalization", "Win32_Security", "Win32_Security_Authorization", "Win32_System_Pipes", "Win32_Storage_Packaging_Appx", "Win32_System_Registry", "Win32_NetworkManagement_IpHelper", "Win32_UI_Input_KeyboardAndMouse"] }
 # The #[implement] proc-macro's expansion references `::windows_core`
 # directly, so the COM objects in drag_out.rs need it as an explicit
 # dependency (same 0.62 line the `windows` crate itself resolves).

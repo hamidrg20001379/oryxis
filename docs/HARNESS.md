@@ -105,6 +105,7 @@ Any `.ice` instruction works as a command:
 | Command | Meaning |
 |---------|---------|
 | `click "Text"` / `click #id` / `click (x, y)` | click a target (`click right ...` for right-click) |
+| `click double <target>` | both clicks of a double click on one drawn frame, with no update between them (a harness command, recorded and replayed as one line). Two `click` lines are NOT a double click you can rely on: each draws a frame and waits for the app first, so the gap between the presses is whatever that took, inside the system interval on a fast machine and outside it on a loaded runner |
 | `press` / `release` / `move <target>` | lower-level mouse steps |
 | `scroll (dx, dy) [<target>]` | mouse wheel in lines (negative y = down); `scroll pixels (dx, dy)` for pixel deltas; the optional target moves the cursor first |
 | `pinch <delta> [<target>]` | one whole touchpad pinch magnifying by `delta` (positive spreads the fingers), replayed with its start and end phases; the optional target moves the cursor first |

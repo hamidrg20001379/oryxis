@@ -1,8 +1,8 @@
-viewport: 1200x750
+viewport: 1200x850
 mode: Zen
 -----
-# Settings > Shortcuts: the menu verbs that still ship with NO factory chord
-# ("Move tab to new window" and its eight siblings, `ships_unbound`) are
+# Settings > Shortcuts: the menu verbs that ship with NO factory chord
+# ("Move tab to new window" and its ten siblings, `ships_unbound`) are
 # rows whose only chip reads "(unbound)". This pins the row's whole
 # life for the one the owner asked for:
 #
@@ -21,7 +21,8 @@ mode: Zen
 # so the "no Reset after Reset" half is asserted through the chord not
 # firing instead. The chip is clicked by position: eleven chips carry
 # the same "(unbound)" text, and this is the second one at this
-# viewport with the list at the top (the "Connect in New Window" row
+# viewport (tall enough to show it under the preset selector) with the
+# list at the top (the "Connect in New Window" row
 # above them carries its factory Ctrl+Enter).
 expect "Welcome to Oryxis"
 click "Skip"
@@ -38,13 +39,13 @@ expect "Pin / unpin tab"
 expect "Copy host address"
 expect "Close Other Tabs"
 expect "Close All Tabs"
-expect "Copy Last Command + Output"
+expect "Save Output As…"
 expect "Copy Screen"
 expect "Clear Scrollback"
 expect "Lock Vault"
 expect "(unbound)"
 # Bind Ctrl+Alt+M to "Move tab to new window", then take it back.
-click (251, 714)
+click (251, 790)
 settle 250
 expect "Press a key or mouse button…"
 type ctrl+alt+m
@@ -63,7 +64,7 @@ expect "bash (default)"
 # Bound again: the chord is the tab menu's "Move to New Window".
 click "Settings"
 settle 250
-click (251, 714)
+click (251, 790)
 settle 250
 expect "Press a key or mouse button…"
 type ctrl+alt+m

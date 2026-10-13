@@ -24,6 +24,20 @@ pub(crate) enum VaultPwOp {
     Change,
 }
 
+/// The boot error screen's repair of a damaged vault file (issue #250).
+#[derive(Debug, Clone, Default)]
+pub(crate) enum VaultRebuild {
+    #[default]
+    Idle,
+    /// The copy runs on a blocking worker; the button is disabled.
+    Running,
+    /// The rebuilt file is in place. `restart_failed` is set when
+    /// `relaunch_self` could not spawn the replacement process.
+    Done { report: oryxis_vault::RebuildReport, restart_failed: bool },
+    /// The new file could not be written; the damaged one is as it was.
+    Failed(String),
+}
+
 /// Lock screen + master-password setup + destroy-confirm UI state.
 #[derive(Debug, Clone, Default)]
 pub(crate) struct VaultUi {
@@ -42,6 +56,11 @@ pub(crate) struct VaultUi {
     /// with the reason, never opened read-only (nothing changed would
     /// be saved, and the pre-0.20 opens did exactly that in silence).
     pub(crate) open_read_only: bool,
+    /// The open failed on a damaged file (`VaultError::Corrupt`): the
+    /// error screen offers the rebuild (`oryxis_vault::rebuild_vault`).
+    pub(crate) open_corrupt: bool,
+    /// Where that rebuild stands.
+    pub(crate) rebuild: VaultRebuild,
     /// Password typed on the lock / setup screen.
     pub(crate) password_input: String,
     /// Whether the lock-screen password is shown as plain text.

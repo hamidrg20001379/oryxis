@@ -266,9 +266,10 @@ impl Oryxis {
                 ));
                 pos += 1;
             }
-            // ".." row, hidden at the root. Going up stays a single
-            // click (and a single Enter): there is nothing on the
-            // parent row worth selecting first.
+            // ".." row, hidden at the root. A row like any other (the
+            // dual pane's and FileZilla's rule): a click selects it and a
+            // double click goes up. The ring's Enter goes up in one step,
+            // as Enter on a selected `..` does.
             if let Some(parent) = files_parent_dir(&files.path) {
                 let up = Message::SidebarFiles(SidebarFilesMessage::SidebarFilesNavigate(parent));
                 list = list.push(self.files_row(
@@ -276,10 +277,10 @@ impl Oryxis {
                     true,
                     false,
                     0,
-                    up.clone(),
+                    Message::SidebarFiles(SidebarFilesMessage::SidebarFilesSelectParent),
                     up,
                     None,
-                    false,
+                    files.parent_selected && files.selected.is_empty(),
                     false,
                     pos,
                 ));
@@ -590,6 +591,12 @@ impl Oryxis {
             .on_exit(Message::SidebarFiles(SidebarFilesMessage::SidebarFilesRowUnhovered(pos)))
             .on_press(press)
             .interaction(iced::mouse::Interaction::Pointer);
+        // The press half of the click, with its position, published ahead
+        // of the row's own press message for the double-click judgement.
+        let click_key = match &full_path {
+            Some(full) => crate::state::FilesClickKey::Entry(full.clone()),
+            None => crate::state::FilesClickKey::Parent,
+        };
         // Right-click opens the row's context menu (Open / Open SFTP
         // session here / Copy path / Copy name); the ".." row has none.
         if let Some(full) = &full_path {
@@ -617,7 +624,12 @@ impl Oryxis {
             row,
             TerminalSidebarTab::Files,
             6.0,
-            area.boxed(),
+            crate::widgets::press_publisher(area.boxed(), move |at| {
+                Message::SidebarFiles(SidebarFilesMessage::SidebarFilesRowPressed(
+                    click_key.clone(),
+                    at,
+                ))
+            }),
         )
     }
 }

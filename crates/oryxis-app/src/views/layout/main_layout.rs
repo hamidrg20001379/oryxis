@@ -513,6 +513,20 @@ impl Oryxis {
             );
         }
 
+        // "Save Output As...": the pane's buffer, read at the click,
+        // waiting for Clipboard or File. Clicking outside saves nothing.
+        if let Some(ref card) = self.save_output {
+            return wrap_with_resize(
+                crate::widgets::modal_overlay(
+                    base,
+                    self.build_save_output_dialog(card),
+                    Some(Message::Terminal(TerminalMessage::TerminalSaveOutputCancel)),
+                    0.0,
+                ),
+                resize_overlay,
+            );
+        }
+
         // Careful-paste confirmation: a clipboard paste containing a line
         // break is parked in `pending_paste` and previewed here (line
         // count + first lines) before anything reaches the session, so a

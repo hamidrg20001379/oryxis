@@ -411,19 +411,12 @@ impl Oryxis {
         // "Cross-pane action available" = the pane opposite the
         // right-clicked row is connected (remote with a client) or is
         // a local destination. The row menu uses this to decide
-        // whether to offer Upload / Download / Relay.
-        let other_side = if row_menu.side == crate::state::SftpPaneSide::Left {
-            crate::state::SftpPaneSide::Right
-        } else {
-            crate::state::SftpPaneSide::Left
-        };
-        let other = self.cur_sftp().pane(other_side);
-        let cross_pane_ready = if other.is_remote {
-            other.client.is_some()
-        } else {
-            true
-        };
-        let other_is_remote = other.is_remote;
+        // whether to offer Upload / Download / Relay; a double click's
+        // Transfer reads the same answer.
+        let cross = self.sftp_cross_pane(row_menu.side);
+        let other = self.cur_sftp().pane(cross.other_side);
+        let cross_pane_ready = cross.ready;
+        let other_is_remote = cross.other_is_remote;
         let src_pane = self.cur_sftp().pane(row_menu.side);
         let source_is_remote = src_pane.is_remote;
         let other_label = other.host_label.clone();

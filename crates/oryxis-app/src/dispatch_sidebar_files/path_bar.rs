@@ -42,7 +42,8 @@ impl Oryxis {
                     files.path_history_open = false;
                     files.selected.clear();
                     files.selection_anchor = None;
-                    files.last_click = None;
+                    files.click_tracker.reset();
+                    files.parent_selected = false;
                 }
             }
             SidebarFilesMessage::SidebarFilesPathHistoryToggle => {

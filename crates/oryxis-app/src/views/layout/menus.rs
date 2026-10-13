@@ -207,7 +207,7 @@ impl Oryxis {
                 self.terminal_context_menu_rows(*pane_id, sel)
             }
             OverlayContent::SessionLogViewerContext(sel) => {
-                // Copy (only with a selection) + the remaining transcript action.
+                // Copy (only with a selection) + Copy All.
                 if sel.is_some() { 2.0 } else { 1.0 }
             }
             // Search field plus the 220 px list: the combo-anchored

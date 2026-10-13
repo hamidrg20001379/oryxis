@@ -344,6 +344,9 @@ impl Oryxis {
                         crate::remote_desktop::sweep_stale_credentials();
                         self.link_forwards.clear();
                         self.link_confirm = None;
+                        // A buffer parked for Save Output is the terminal's
+                        // text, gone with the terminal.
+                        self.save_output = None;
                         // Standalone SFTP tabs ride their own SSH channels:
                         // close every mounted session and drop the tabs (plus
                         // their tab-order entries and the hoisted buffer), mirroring

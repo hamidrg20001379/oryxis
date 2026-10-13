@@ -154,7 +154,8 @@ fn instructions_text(options: &Options, boot_note: &str) -> String {
          sandboxed at {home}, so nothing touches the real ~/.oryxis; state \
          persists across sessions until `reset` with wipe=true. Drive the UI \
          with `run` (ice instructions, one per line): click [right] \
-         \"Text\"|#id|(x, y); move/press/release <target>; scroll [pixels] \
+         \"Text\"|#id|(x, y); click double <target> (both clicks on one \
+         frame); move/press/release <target>; scroll [pixels] \
          (dx, dy) [target]; type \"text\"; type enter|escape|tab|backspace; \
          chords like `type ctrl+k`; expect \"Text\" asserts a visible text \
          widget (exact match; canvas content like the terminal grid is NOT \
@@ -173,7 +174,7 @@ fn tool_definitions() -> Value {
     json!([
         {
             "name": "run",
-            "description": "Execute one or more .ice instructions against the emulated app, one per line (click \"Text\" / click #id / click (x, y) / click right <target> / move / press / release / scroll [pixels] (dx, dy) [target] / type \"text\" / type enter|escape|tab|backspace / type ctrl+shift+f / expect \"Text\"). Stops at the first failure. Instructions that execute are recorded for save_ice.",
+            "description": "Execute one or more .ice instructions against the emulated app, one per line (click \"Text\" / click #id / click (x, y) / click right <target> / click double <target> / move / press / release / scroll [pixels] (dx, dy) [target] / type \"text\" / type enter|escape|tab|backspace / type ctrl+shift+f / expect \"Text\"). Stops at the first failure. Instructions that execute are recorded for save_ice.",
             "inputSchema": {
                 "type": "object",
                 "properties": {

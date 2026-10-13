@@ -120,6 +120,20 @@ impl HotkeyBindings {
         }
     }
 
+    /// Whether any chord here fires on a keypress `binding` fires on
+    /// (`HotkeyBinding::shares_keypress`: a family counts for its members).
+    pub fn shares_keypress(&self, binding: &HotkeyBinding) -> bool {
+        self.0.iter().any(|b| b.shares_keypress(binding))
+    }
+
+    /// Drop every chord that fires on a keypress `binding` fires on; a
+    /// family goes whole. Returns whether anything went.
+    pub fn remove_sharing(&mut self, binding: &HotkeyBinding) -> bool {
+        let before = self.0.len();
+        self.0.retain(|b| !b.shares_keypress(binding));
+        self.0.len() != before
+    }
+
     /// Drop one chord. Returns whether it was there.
     pub fn remove(&mut self, binding: &HotkeyBinding) -> bool {
         let before = self.0.len();
@@ -547,11 +561,10 @@ pub fn default_bindings() -> HotkeyMap {
     // there is no scrollback and the running app owns the key.
     put(&mut m, ScrollbackPageUp, false, true, false, false, Named(keyboard::key::Named::PageUp));
     put(&mut m, ScrollbackPageDown, false, true, false, false, Named(keyboard::key::Named::PageDown));
-    // Pane export / cleanup actions. Ctrl+Alt keeps these out of the shell's
-    // control-byte chords and avoids the existing Ctrl+Shift bindings; macOS
-    // receives the equivalent Cmd+Alt form through the primary pair.
-    put(&mut m, TerminalCopyLastCommand, primary_ctrl, false, true, primary_logo, Char('a'));
-    put(&mut m, TerminalCopyScreen, primary_ctrl, false, true, primary_logo, Char('s'));
+    // The Menu key opens the pane's context menu at the text cursor: the
+    // system's own key for exactly that, bare like F11, and the only door
+    // a keyboard has to the menu (Shift+F10 belongs to the PTY).
+    put(&mut m, TerminalContextMenu, false, false, false, false, Named(keyboard::key::Named::ContextMenu));
     // Ctrl+Shift+digit (Cmd+Shift on macOS): the vault-section
     // jump family, one digit per burger-menu VAULT entry. Shift
     // keeps it clear of the Ctrl+digit tab slots.
@@ -567,7 +580,14 @@ pub fn default_bindings() -> HotkeyMap {
     // `vault_only` keeps it with the program inside a terminal.
     put(&mut m, ConnectInNewWindow, primary_ctrl, false, false, primary_logo, Named(keyboard::key::Named::Enter));
     // Not every action is in this table on purpose: the ones
-    // `HotkeyAction::ships_unbound` names still ship with NO chord.
+    // `HotkeyAction::ships_unbound` names (the tab menu's window verbs,
+    // rename / pin / copy address, close others / all, the pane's copy
+    // all / copy screen / clear scrollback, lock vault) ship with NO
+    // chord. Absence from the map IS "unbound out of the box"; an empty
+    // list here would read as a deliberate user unbind in the editor
+    // (its Reset compares against this map). The test
+    // `every_action_ships_bound_or_declares_unbound` keeps the two
+    // lists in step; the debug build checks it on every boot too.
     debug_assert!(
         HotkeyAction::all()
             .iter()
@@ -634,28 +654,6 @@ mod tests {
             let b = defaults.get(&action).expect("default missing");
             assert_eq!(b.serialize(), expected);
             assert_eq!(HotkeyBindings::parse(expected).as_ref(), Some(b));
-        }
-    }
-
-    #[test]
-    fn pane_copy_actions_have_factory_chords() {
-        let defaults = default_bindings();
-        let primary_ctrl = !cfg!(target_os = "macos");
-        let primary_logo = cfg!(target_os = "macos");
-        for (action, key) in [
-            (HotkeyAction::TerminalCopyLastCommand, 'a'),
-            (HotkeyAction::TerminalCopyScreen, 's'),
-        ] {
-            let binding = defaults
-                .get(&action)
-                .expect("pane action bound")
-                .primary()
-                .expect("primary chord");
-            assert_eq!(binding.ctrl, primary_ctrl);
-            assert_eq!(binding.logo, primary_logo);
-            assert!(binding.alt && !binding.shift);
-            assert_eq!(binding.primary, PrimaryKey::Char(key));
-            assert!(binding.is_safe());
         }
     }
 

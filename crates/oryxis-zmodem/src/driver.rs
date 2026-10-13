@@ -20,10 +20,10 @@
 //! - **Abort is cooperative but must never wait on the peer**: a shared
 //!   flag lets the app request cancellation, and an empty chunk on
 //!   `wire_in` wakes a driver parked on a silent peer's `recv` so the
-//!   flag is actually seen. On abort the driver writes the canonical
-//!   `CANCEL` sequence itself (`zmodem2`'s `abort()` only queues the
-//!   `Aborted` event; it stages no wire bytes), so the remote tears
-//!   down cleanly instead of waiting out its timeout.
+//!   flag is actually seen. On abort `zmodem2` queues the cancel
+//!   sequence ahead of its `Aborted` event and the loop writes it like
+//!   any other wire, so the remote tears down cleanly instead of waiting
+//!   out its timeout, and gets the sequence once.
 //! - **Completion is not the end of the wire.** `poll()` yields events
 //!   before queued wire bytes, so `SessionCompleted` arrives while the
 //!   final handshake (the receiver's ZFIN reply, the sender's "OO") is
@@ -599,9 +599,8 @@ async fn run_download(
     loop {
         if !aborting && io.abort.load(Ordering::Relaxed) {
             aborting = true;
-            // `zmodem2`'s abort() only queues the Aborted event; the
-            // cancel bytes the peer needs are ours to send.
-            let _ = io.wire_out.send(crate::CANCEL.to_vec());
+            // abort() queues the cancel bytes the peer needs ahead of the
+            // Aborted event, so the next poll writes them.
             let _ = receiver.abort();
         }
         match decode(receiver.poll()) {
@@ -1008,9 +1007,8 @@ async fn run_upload(
     loop {
         if !aborting && io.abort.load(Ordering::Relaxed) {
             aborting = true;
-            // Same as the download side: the cancel bytes are ours to
-            // send, abort() only queues the Aborted event.
-            let _ = io.wire_out.send(crate::CANCEL.to_vec());
+            // Same as the download side: abort() queues the cancel bytes
+            // ahead of the Aborted event.
             sender.abort();
         }
         match decode(sender.poll()) {
@@ -1550,6 +1548,15 @@ mod tests {
         });
     }
 
+    /// How many times the cancel sequence appears in what went out. The
+    /// peer must get it once: a second run of CANs lands on the remote
+    /// shell after `rz` / `sz` has exited, where Ctrl-X is a prefix key.
+    fn cancel_runs(sent: &[u8]) -> usize {
+        sent.windows(crate::CANCEL.len())
+            .filter(|w| *w == crate::CANCEL)
+            .count()
+    }
+
     /// A cancel must take effect while the driver is parked on
     /// `wire_in.recv()` waiting for a silent peer: the flag plus the
     /// empty wake-up chunk end the transfer with `Aborted` after the
@@ -1614,10 +1621,71 @@ mod tests {
             while let Ok(b) = wire_out_rx.try_recv() {
                 sent.extend_from_slice(&b);
             }
-            assert!(
-                sent.windows(crate::CANCEL.len()).any(|w| w == crate::CANCEL),
-                "no CANCEL sequence on the wire after abort"
-            );
+            assert_eq!(cancel_runs(&sent), 1, "the cancel sequence must go out exactly once");
+
+            let _ = tokio::fs::remove_dir_all(&dir).await;
+        });
+    }
+
+    /// The upload side of the same cancel: the sender parks on recv
+    /// waiting for the receiver's ZRINIT, and the flag plus the wake-up
+    /// end it with `Aborted` and one cancel sequence on the wire.
+    #[test]
+    fn cancel_wakes_an_upload_blocked_on_a_silent_peer() {
+        let rt = tokio::runtime::Builder::new_multi_thread()
+            .worker_threads(1)
+            .enable_all()
+            .build()
+            .unwrap();
+        rt.block_on(async {
+            let dir =
+                std::env::temp_dir().join(format!("oryxis-zm-upabort-{}", std::process::id()));
+            let _ = tokio::fs::create_dir_all(&dir).await;
+            let src = dir.join("payload.bin");
+            tokio::fs::write(&src, vec![7u8; 4096]).await.unwrap();
+
+            let (wire_tx, wire_in) = mpsc::unbounded_channel();
+            let (wire_out_tx, mut wire_out_rx) = mpsc::unbounded_channel();
+            let (p_tx, mut p_rx) = mpsc::unbounded_channel();
+            let abort = Arc::new(AtomicBool::new(false));
+
+            let task = tokio::spawn(run(
+                Direction::Upload,
+                TransferSpec::Upload {
+                    sources: vec![src],
+                    streaming_window: DEFAULT_STREAMING_WINDOW,
+                },
+                Vec::new(),
+                TransferIo {
+                    wire_in,
+                    wire_out: wire_out_tx,
+                    progress: p_tx,
+                    abort: abort.clone(),
+                },
+            ));
+            // Let the sender flush its ZRQINIT and park on recv.
+            tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+
+            abort.store(true, Ordering::Relaxed);
+            wire_tx.send(Vec::new()).unwrap();
+
+            tokio::time::timeout(std::time::Duration::from_secs(5), task)
+                .await
+                .expect("cancel did not wake the blocked upload")
+                .unwrap();
+
+            let mut aborted = false;
+            while let Ok(p) = p_rx.try_recv() {
+                if matches!(p, Progress::Aborted) {
+                    aborted = true;
+                }
+            }
+            assert!(aborted, "upload ended without a terminal Aborted");
+            let mut sent = Vec::new();
+            while let Ok(b) = wire_out_rx.try_recv() {
+                sent.extend_from_slice(&b);
+            }
+            assert_eq!(cancel_runs(&sent), 1, "the cancel sequence must go out exactly once");
 
             let _ = tokio::fs::remove_dir_all(&dir).await;
         });

@@ -368,38 +368,47 @@ impl Oryxis {
         // a vault-only action and a tab-only one never do
         // (`scopes_overlap`), so the chord stays on both and the screen
         // decides which fires.
-        let conflict: Option<HotkeyAction> = self
+        // A family chord can meet several actions at once (Alt+←/→ is
+        // both pane-left's Alt+Left and pane-right's Alt+Right), so every
+        // one of them gives the keypress up; the toast names them all.
+        let mut conflicts: Vec<HotkeyAction> = self
             .hotkey_bindings
             .iter()
-            .find(|(a, b)| {
+            .filter(|(a, b)| {
                 **a != action
-                    && b.contains(&new_binding)
+                    && b.shares_keypress(&new_binding)
                     && HotkeyAction::scopes_overlap(**a, action)
             })
-            .map(|(a, _)| *a);
-        let conflict_toast: Option<Task<Message>> = conflict.map(|other| {
+            .map(|(a, _)| *a)
+            .collect();
+        conflicts.sort_by_key(|a| HotkeyAction::all().iter().position(|x| x == a));
+        let mut unbound: Vec<&'static str> = Vec::new();
+        let mut trimmed: Vec<&'static str> = Vec::new();
+        for other in &conflicts {
             let mut left = self
                 .hotkey_bindings
-                .get(&other)
+                .get(other)
                 .cloned()
                 .unwrap_or_default();
-            left.remove(&new_binding);
-            let now_unbound = left.is_empty();
+            left.remove_sharing(&new_binding);
             self.persist_setting(&format!("hotkey_{}", other.id()), &left.serialize());
-            if now_unbound {
-                self.hotkey_bindings.remove(&other);
+            if left.is_empty() {
+                self.hotkey_bindings.remove(other);
+                unbound.push(crate::i18n::t(other.label_key()));
             } else {
-                self.hotkey_bindings.insert(other, left);
+                self.hotkey_bindings.insert(*other, left);
+                trimmed.push(crate::i18n::t(other.label_key()));
             }
-            let msg = if now_unbound {
-                "hotkey_conflict_unbound"
-            } else {
-                "hotkey_conflict_chord_removed"
-            };
-            self.set_toast(
-                crate::i18n::t(msg)
-                    .replace("{action}", crate::i18n::t(other.label_key())),
-            );
+        }
+        let conflict_toast: Option<Task<Message>> = (!conflicts.is_empty()).then(|| {
+            let mut lines = Vec::new();
+            if !unbound.is_empty() {
+                lines.push(crate::i18n::t("hotkey_conflict_unbound").replace("{action}", &unbound.join(", ")));
+            }
+            if !trimmed.is_empty() {
+                lines.push(crate::i18n::t("hotkey_conflict_chord_removed").replace("{action}", &trimmed.join(", ")));
+            }
+            self.set_toast(lines.join(" "));
             super::toast_clear_after_secs(3)
         });
 

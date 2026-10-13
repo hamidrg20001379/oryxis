@@ -55,6 +55,14 @@ pub enum SftpMessage {
     SftpNavigateLocal(crate::state::SftpPaneSide, std::path::PathBuf),
     /// Go up one directory in the given pane (local or remote).
     SftpUp(crate::state::SftpPaneSide),
+    /// A left press landed on a row of the dual-pane browser, at this
+    /// (content-space) position. Published by the row's press publisher
+    /// AHEAD of the row's own release message, and judged there against
+    /// the previous press for a double click (`crate::double_click`).
+    SftpRowPressed(crate::state::SftpClickKey, iced::Point),
+    /// Left click (release) on a pane's `..` row: a single click puts the
+    /// keyboard cursor on it, a double click goes up one folder.
+    SftpParentRowClicked(crate::state::SftpPaneSide),
     /// Refresh a local pane's listing from its current path.
     SftpRefreshLocal(crate::state::SftpPaneSide),
     /// Open the host picker, choosing for the given pane.

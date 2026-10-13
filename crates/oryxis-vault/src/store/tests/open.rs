@@ -73,3 +73,23 @@ fn an_owner_file_without_write_bits_is_healed_before_the_read_only_check() {
     let mode = std::fs::metadata(&path).unwrap().permissions().mode() & 0o777;
     assert_eq!(mode, 0o600, "{mode:o}");
 }
+
+/// A vault the open CREATES is 0600 from its first session, siblings
+/// included: the chmod that heals an existing file runs before the
+/// SQLite open, when a new file does not exist yet.
+#[cfg(unix)]
+#[test]
+fn a_new_vault_is_private_from_the_start() {
+    use std::os::unix::fs::PermissionsExt as _;
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("vault.db");
+    let vault = VaultStore::open(&path).unwrap();
+    vault.set_setting("probe", "1").unwrap();
+    for ext in ["", "-wal", "-shm"] {
+        let p = std::path::PathBuf::from(format!("{}{ext}", path.display()));
+        if p.exists() {
+            let mode = std::fs::metadata(&p).unwrap().permissions().mode() & 0o777;
+            assert_eq!(mode, 0o600, "{}: {mode:o}", p.display());
+        }
+    }
+}

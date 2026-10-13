@@ -126,6 +126,12 @@ pub(crate) enum Modal {
     /// is REMOTE output, so it blocks input (Enter must never fall
     /// through to the PTY behind it) and Esc opens nothing.
     TerminalLinkConfirm,
+    /// "Save Output As..." (`save_output`): a pane's buffer, read at the
+    /// click, waiting for Clipboard or File. Nothing in it is risky, but
+    /// it sits over the terminal it was raised from, so it blocks input
+    /// (Enter answers the dialog, never the shell) and Esc drops the
+    /// parked text.
+    TerminalSaveOutput,
     /// Manual-lock confirmation (`vault_ui.lock_confirm`). Lock Vault
     /// tears down every live SSH session and tab, so the button asks
     /// first; Esc / backdrop / the Cancel button all decline (the safe
@@ -198,6 +204,7 @@ impl Modal {
         Modal::HighlightRuleEditor,
         Modal::TriggerConfirm,
         Modal::TerminalLinkConfirm,
+        Modal::TerminalSaveOutput,
         Modal::LockVaultConfirm,
         Modal::UpdateOffer,
         Modal::RelayDeployConfirm,
@@ -237,6 +244,9 @@ impl Modal {
         // Same class again: Esc opens nothing, which is the safe answer
         // to a link whose text a remote host chose.
         Modal::TerminalLinkConfirm,
+        // Esc = save nothing; the parked buffer is dropped. Drawn right
+        // under the link question in the `main_layout` chain.
+        Modal::TerminalSaveOutput,
         // The error dialog can pop over another flow, so it dismisses
         // before the heavier editors below; the two confirm dialogs
         // follow in the same lightweight-confirm group.
@@ -331,6 +341,7 @@ impl Modal {
             | Modal::HighlightRuleEditor
             | Modal::TriggerConfirm
             | Modal::TerminalLinkConfirm
+            | Modal::TerminalSaveOutput
             | Modal::LockVaultConfirm
             | Modal::UpdateOffer
             | Modal::RelayDeployConfirm
@@ -388,13 +399,14 @@ mod tests {
                 | Modal::HighlightRuleEditor
                 | Modal::TriggerConfirm
                 | Modal::TerminalLinkConfirm
+                | Modal::TerminalSaveOutput
                 | Modal::LockVaultConfirm
                 | Modal::UpdateOffer
                 | Modal::RelayDeployConfirm
                 | Modal::SyncHostPicker => {}
             }
         }
-        assert_eq!(Modal::ALL.len(), 43, "add the new variant to Modal::ALL");
+        assert_eq!(Modal::ALL.len(), 44, "add the new variant to Modal::ALL");
         // Every Esc-closeable modal must also be a known modal.
         for m in Modal::ESC_ORDER {
             assert!(Modal::ALL.contains(m));

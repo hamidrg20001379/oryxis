@@ -168,19 +168,57 @@ pub(crate) fn press_hit_reporter<'a, Message: 'a, T: Clone + 'a>(
     cell: PressHitCell<T>,
     value: T,
 ) -> Element<'a, Message> {
+    press_tap(content, move |_, _| {
+        *cell.borrow_mut() = Some(value.clone());
+    })
+}
+
+/// The press half of a row's click, as a message.
+///
+/// A row is a `button`, which publishes on RELEASE, so the press it
+/// began with (where and when it landed) is lost by the time its message
+/// is handled; that is what a double click is judged on. This wrapper
+/// publishes `on_press(position)` the moment a left press lands inside
+/// its bounds, AHEAD of whatever the wrapped child publishes for the
+/// same gesture: both go through the one ordered widget-message queue,
+/// so the row's own release message always finds its press already
+/// handled, however many clicks a slow frame batched together. (The
+/// global press subscription cannot give that guarantee: subscription
+/// messages are delivered on their own channel, after or before the
+/// widget's.) The position is in the row's content space, see
+/// [`press_hit_reporter`]; two presses on one row compare correctly
+/// because they see the same translation.
+pub(crate) fn press_publisher<'a, Message: Clone + 'a>(
+    content: impl Into<Element<'a, Message>>,
+    on_press: impl Fn(iced::Point) -> Message + 'a,
+) -> Element<'a, Message> {
+    press_tap(content, move |at, shell| shell.publish(on_press(at)))
+}
+
+/// The one press-observing decorator behind [`press_hit_reporter`] and
+/// [`press_publisher`]: runs `on_press` with the (content-space) cursor
+/// position when a left press lands inside the child's bounds, BEFORE
+/// the child sees the event, and never captures it. Shape-stable: tag,
+/// state and children are the child's, so wrapping a row or not never
+/// re-keys the widget tree (issue #241).
+pub(crate) fn press_tap<'a, Message: 'a>(
+    content: impl Into<Element<'a, Message>>,
+    on_press: impl Fn(iced::Point, &mut iced::advanced::Shell<'_, Message>) + 'a,
+) -> Element<'a, Message> {
     use iced::advanced::widget::{tree, Operation, Tree, Widget};
     use iced::advanced::{layout, mouse, overlay, renderer, Layout, Shell};
     use iced::{Event, Length as L, Rectangle, Size, Vector};
 
-    struct PressHitReporter<'a, Message, T> {
+    type OnPress<'a, Message> = Box<dyn Fn(iced::Point, &mut Shell<'_, Message>) + 'a>;
+
+    struct PressTap<'a, Message> {
         content: Element<'a, Message>,
-        cell: PressHitCell<T>,
-        value: T,
+        on_press: OnPress<'a, Message>,
     }
 
-    impl<Message, T: Clone> iced::advanced::widget::Meta for PressHitReporter<'_, Message, T> {}
+    impl<Message> iced::advanced::widget::Meta for PressTap<'_, Message> {}
 
-    impl<Message, T: Clone> Widget<Message, Theme, iced::Renderer> for PressHitReporter<'_, Message, T> {
+    impl<Message> Widget<Message, Theme, iced::Renderer> for PressTap<'_, Message> {
         fn tag(&self) -> tree::Tag {
             self.content.tag()
         }
@@ -236,15 +274,15 @@ pub(crate) fn press_hit_reporter<'a, Message: 'a, T: Clone + 'a>(
             shell: &mut Shell<'_, Message>,
             viewport: &Rectangle,
         ) {
-            // Record BEFORE delegating: the child (a button) captures the
+            // Run BEFORE delegating: the child (a button) captures the
             // press, but capture doesn't erase the event and rows don't
-            // overlap, so at most one wrapper writes per press.
+            // overlap, so at most one wrapper of a list runs per press.
             if matches!(
                 event,
                 Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left))
-            ) && cursor.is_over(layout.bounds())
+            ) && let Some(at) = cursor.position_over(layout.bounds())
             {
-                *self.cell.borrow_mut() = Some(self.value.clone());
+                (self.on_press)(at, shell);
             }
             self.content.update(
                 tree, event, layout, cursor, renderer, shell, viewport,
@@ -281,10 +319,9 @@ pub(crate) fn press_hit_reporter<'a, Message: 'a, T: Clone + 'a>(
         }
     }
 
-    PressHitReporter {
+    PressTap {
         content: content.into(),
-        cell,
-        value,
+        on_press: Box::new(on_press),
     }.boxed()
 }
 

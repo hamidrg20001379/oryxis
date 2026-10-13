@@ -5,12 +5,7 @@
 //! `SidebarFilesNavigate` is the one place that unpins the OSC 7
 //! follow, so manual navigation wins until the pin is re-enabled.
 
-use std::time::Duration;
-
 use super::*;
-
-/// Double-click window, matching the SFTP pane's constant.
-const DOUBLE_CLICK_WINDOW: Duration = Duration::from_millis(500);
 
 impl Oryxis {
     pub(super) fn handle_sidebar_files_navigate(
@@ -23,6 +18,55 @@ impl Oryxis {
             }
             SidebarFilesMessage::SidebarFilesRowUnhovered(idx) => {
                 self.nav.hover.leave_files_row(idx);
+            }
+            SidebarFilesMessage::SidebarFilesRowPressed(key, at) => {
+                let plain = !(self.modifiers.control()
+                    || self.modifiers.command()
+                    || self.modifiers.shift());
+                let Some(pane) = self.active_pane_mut() else {
+                    return Task::none();
+                };
+                if !plain {
+                    // Selection-building: never half of a double click,
+                    // and no stamp for the next plain press to pair with.
+                    pane.files.click_tracker.reset();
+                    pane.files.press_verdict = None;
+                    return Task::none();
+                }
+                let rule = crate::double_click::DoubleClickRule::os();
+                let report =
+                    pane.files.click_tracker.press(key.clone(), at, std::time::Instant::now(), &rule);
+                pane.files.press_verdict = Some((key, report));
+            }
+            SidebarFilesMessage::SidebarFilesSelectParent => {
+                // The `..` row, the dual pane's rule: a click selects it, a
+                // double click goes up. The ring's Enter still goes up in
+                // one step (`key_activate`), like Enter on a selected `..`.
+                self.keynav.sidebar_selected = None;
+                let plain = !(self.modifiers.control()
+                    || self.modifiers.command()
+                    || self.modifiers.shift());
+                let Some(pane) = self.active_pane_mut() else {
+                    return Task::none();
+                };
+                pane.files.path_editing = None;
+                pane.files.path_history_open = false;
+                let verdict = pane
+                    .files
+                    .press_verdict
+                    .take()
+                    .filter(|(key, _)| *key == crate::state::FilesClickKey::Parent);
+                if plain
+                    && verdict.is_some_and(|(_, r)| r.double)
+                    && let Some(parent) = files_parent_dir(&pane.files.path)
+                {
+                    return self.update(Message::SidebarFiles(
+                        SidebarFilesMessage::SidebarFilesNavigate(parent),
+                    ));
+                }
+                pane.files.selected.clear();
+                pane.files.selection_anchor = None;
+                pane.files.parent_selected = true;
             }
             SidebarFilesMessage::SidebarFilesSelectRow(path, is_dir) => {
                 // Single-click selects the row (highlight); double-click
@@ -38,7 +82,6 @@ impl Oryxis {
                 // below outlives the selection edit.
                 let ctrl = self.modifiers.control() || self.modifiers.command();
                 let shift = self.modifiers.shift();
-                let now = std::time::Instant::now();
                 // Read off `self` with the modifiers, for the same
                 // reason: the arm below is built while the pane borrow
                 // is live.
@@ -79,30 +122,26 @@ impl Oryxis {
                         stage: crate::drag_out::DragOutStage::Armed(payload),
                     },
                 );
-                // Only a PLAIN click can be a double-click: a ctrl/shift
-                // press is selection-building, never an enter (the SFTP
-                // pane's rule).
-                let is_double = !ctrl
-                    && !shift
-                    && pane.files.last_click.as_ref().is_some_and(
-                        |(t, p)| p == &path && now.duration_since(*t) < DOUBLE_CLICK_WINDOW,
-                    );
+                // What this press was, judged when it landed
+                // (`SidebarFilesRowPressed`, published ahead of this
+                // message). Only a PLAIN click can be a double-click: a
+                // ctrl/shift press is selection-building, never an enter
+                // (the SFTP pane's rule), and its press reset the tracker.
+                let verdict = pane
+                    .files
+                    .press_verdict
+                    .take()
+                    .filter(|(key, _)| *key == crate::state::FilesClickKey::Entry(path.clone()));
+                let is_double = !ctrl && !shift && verdict.is_some_and(|(_, r)| r.double);
+                // An entry click takes the selection off the `..` row.
+                pane.files.parent_selected = false;
                 if is_double && is_dir {
-                    pane.files.last_click = None;
                     pane.files.selected.clear();
                     pane.files.selection_anchor = None;
                     return self.update(Message::SidebarFiles(
                         SidebarFilesMessage::SidebarFilesNavigate(path),
                     ));
                 }
-                // The double-click detector only feeds on plain clicks
-                // too, so a ctrl/shift press can't leave a stale stamp
-                // that turns the next plain click into an enter.
-                pane.files.last_click = if ctrl || shift {
-                    None
-                } else {
-                    Some((now, path.clone()))
-                };
                 if shift {
                     // Range select within the visible listing. If the
                     // anchor row is gone (refresh / delete pruned it) or
@@ -246,7 +285,8 @@ impl Oryxis {
                 pane.files.error = None;
                 pane.files.selected.clear();
                 pane.files.selection_anchor = None;
-                pane.files.last_click = None;
+                pane.files.click_tracker.reset();
+                pane.files.parent_selected = false;
                 // Rapid clicks race their listings; the stamp makes the
                 // LATEST navigation win regardless of completion order.
                 let seq = pane.files.next_req();

@@ -402,9 +402,16 @@ pub(crate) struct SftpState {
     /// the same string (after a pause), the search advances to the next
     /// match instead of restarting, so repeated typing cycles results.
     pub type_ahead_committed: String,
-    /// Last plain row click `(side, path, when)`, used to detect a
-    /// double-click (single click selects a folder, double click opens it).
-    pub last_click: Option<(SftpPaneSide, String, std::time::Instant)>,
+    /// Judges each row press against the previous one, on the OS's
+    /// double-click terms (`crate::double_click`). Fed by the rows'
+    /// `SftpRowPressed`, which runs ahead of the row's own release.
+    pub click_tracker: crate::double_click::ClickTracker<SftpClickKey>,
+    /// What the LAST row press was, waiting for that row's release
+    /// (`SftpSelectRow` / `SftpParentRowClicked`) to act on it. Every
+    /// press overwrites it, and a release takes it only when the key
+    /// matches, so a press that ended in a drag elsewhere is never read
+    /// by a later click.
+    pub press_verdict: Option<(SftpClickKey, crate::double_click::ClickReport)>,
     /// Row armed for inline rename by a slow second click (`(side, path)`):
     /// set on the press, deferred on release (iff no drag activated, so
     /// dragging an already-selected row still works) and only then armed
@@ -467,6 +474,15 @@ pub(crate) struct SftpState {
     pub focus_row_bounds: crate::widgets::BoundsCell,
 }
 
+/// A row of the dual-pane browser as the double-click detector sees it:
+/// the `..` row has no path, so it is its own key rather than a sentinel
+/// string that a real entry could collide with.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum SftpClickKey {
+    Parent(SftpPaneSide),
+    Entry(SftpPaneSide, String),
+}
+
 /// The keyboard cursor target to apply after a directory listing loads.
 #[derive(Debug, Clone)]
 pub(crate) enum SftpPendingFocus {
@@ -525,7 +541,8 @@ impl Default for SftpState {
             type_ahead: String::new(),
             type_ahead_at: None,
             type_ahead_committed: String::new(),
-            last_click: None,
+            click_tracker: Default::default(),
+            press_verdict: None,
             pending_rename: None,
             hovered_name: None,
             swallow_next_activate: false,
