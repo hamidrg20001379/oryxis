@@ -598,6 +598,7 @@ pub(super) fn lookup(key: &str) -> &'static str {
         "right_click_extend" => "Extend selection",
         "terminal_copy" => "Copy",
         "terminal_copy_all" => "Copy All",
+        "terminal_copy_last_command" => "Copy Last Command + Output",
         "terminal_copy_screen" => "Copy Screen",
         "terminal_paste" => "Paste",
         "terminal_clear_scrollback" => "Clear Scrollback",

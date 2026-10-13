@@ -149,17 +149,12 @@ pub enum HotkeyAction {
     /// Global rather than `terminal_only`: the moment it is wanted most
     /// is right after closing the last tab, which lands on Home.
     ReopenClosedTab,
-    // Menu verbs that ship UNBOUND: no factory chord, absent from
-    // `default_bindings()` (absence IS the representation, never an
-    // empty list there). The Shortcuts editor offers each as a row
-    // whose only chip reads "(unbound)", so the chord is the user's
-    // choice, and the command palette lists them like any other action.
-    // Nothing ships bound because no terminal or browser agrees on a
-    // chord for any of these (Chrome, Firefox, VS Code and kitty leave
-    // them to the menu), and a two-key chord on the Ctrl+Shift row fires
-    // by accident next to N / W (Konsole dropped its Ctrl+Shift+L
-    // detach-tab chord for exactly that in 2020). `ships_unbound` names
-    // the set; a test pins it against the factory table.
+    // Menu verbs: some ship with factory chords, while the rest remain
+    // unbound and user-configurable. The Shortcuts editor offers every one
+    // as a row and the command palette lists them like any other action.
+    // The remaining menu verbs ship unbound because no terminal or browser
+    // agrees on a chord for them. `ships_unbound` names that set; a test pins
+    // it against the factory table.
     /// Move the focused tab into a window of its own: the tab menu's
     /// "Move to New Window". Global, not `terminal_only`: an SFTP tab
     /// moves too, and the terminal gate would never fire there.
@@ -177,10 +172,8 @@ pub enum HotkeyAction {
     CloseOtherTabs,
     /// Close every tab of this window, through its confirm.
     CloseAllTabs,
-    /// Copy the focused pane's whole buffer (scrollback + screen).
-    /// App-dispatched, unlike `TerminalCopy`: the handler reads the
-    /// pane's buffer under its lock, so the palette can run it.
-    TerminalCopyAll,
+    /// Copy the most recently completed shell command and its output.
+    TerminalCopyLastCommand,
     /// Copy the focused pane's displayed screen only.
     TerminalCopyScreen,
     /// Drop the focused pane's scrollback.
@@ -256,7 +249,7 @@ impl HotkeyAction {
             TerminalSelectAll,
             ScrollbackPageUp,
             ScrollbackPageDown,
-            TerminalCopyAll,
+            TerminalCopyLastCommand,
             TerminalCopyScreen,
             TerminalClearScrollback,
             VaultSectionSlot,
@@ -327,7 +320,7 @@ impl HotkeyAction {
             CopyTabAddress => "copy_tab_address",
             CloseOtherTabs => "close_other_tabs",
             CloseAllTabs => "close_all_tabs",
-            TerminalCopyAll => "terminal_copy_all",
+            TerminalCopyLastCommand => "terminal_copy_last_command",
             TerminalCopyScreen => "terminal_copy_screen",
             TerminalClearScrollback => "terminal_clear_scrollback",
             LockVault => "lock_vault",
@@ -410,7 +403,7 @@ impl HotkeyAction {
             CopyTabAddress => "copy_host_address",
             CloseOtherTabs => "close_other_tabs",
             CloseAllTabs => "close_all_tabs",
-            TerminalCopyAll => "terminal_copy_all",
+            TerminalCopyLastCommand => "terminal_copy_last_command",
             TerminalCopyScreen => "terminal_copy_screen",
             TerminalClearScrollback => "terminal_clear_scrollback",
             LockVault => "lock_vault",
@@ -436,8 +429,6 @@ impl HotkeyAction {
                 | CopyTabAddress
                 | CloseOtherTabs
                 | CloseAllTabs
-                | TerminalCopyAll
-                | TerminalCopyScreen
                 | TerminalClearScrollback
                 | LockVault
         )
@@ -473,7 +464,7 @@ impl HotkeyAction {
                 | ScrollbackPageDown
                 | DuplicateInNewWindow
                 | CopyTabAddress
-                | TerminalCopyAll
+                | TerminalCopyLastCommand
                 | TerminalCopyScreen
                 | TerminalClearScrollback
         )

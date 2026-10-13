@@ -1291,17 +1291,6 @@ impl Oryxis {
         }
         items = items
             .push(self.menu_item(
-                iced_fonts::lucide::copy_check(),
-                crate::i18n::t("terminal_copy_all"),
-                Message::Terminal(TerminalMessage::TerminalCopyAll(pane_id)),
-                OryxisColors::t().text_secondary,
-            ))
-            // Next to "Copy All" because it answers the same question with
-            // the opposite scope: the screen as drawn, scroll position
-            // included, and nothing off it. Here the pane is necessarily
-            // the one under the cursor and necessarily visible, which is
-            // what makes the drawn viewport the right thing to export.
-            .push(self.menu_item(
                 iced_fonts::lucide::clipboard_copy(),
                 crate::i18n::t("terminal_copy_screen"),
                 Message::Terminal(TerminalMessage::TerminalCopyScreen(pane_id)),

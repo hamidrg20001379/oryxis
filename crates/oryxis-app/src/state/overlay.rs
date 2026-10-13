@@ -109,8 +109,8 @@ pub(crate) enum OverlayContent {
     /// icon-collapsed search can't free enough room for them inline.
     ToolbarOverflow,
     /// Right-click context menu over a terminal pane (right-click scheme
-    /// = Menu). Items: Copy (when a selection was live), Copy All, Paste,
-    /// Clear Scrollback. Carries the pane id (so actions target the
+    /// = Menu). Items: Copy (when a selection was live), Paste, Clear
+    /// Scrollback. Carries the pane id (so actions target the
     /// clicked pane) and the selection text captured by the widget at
     /// right-click (the app can't reach the widget's live selection).
     /// Position lives in `OverlayState.x/y` (window-absolute).

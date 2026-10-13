@@ -730,7 +730,7 @@ impl Oryxis {
             }));
         }
         // Context menu (right-click scheme = Menu): carry the clicked
-        // pane's id so Copy All / Clear Scrollback target the right pane,
+        // pane's id so Copy Screen / Clear Scrollback target the right pane,
         // not just the focused one.
         if self.prefs.terminal_right_click == crate::util::RightClickMode::Menu {
             let pane_id = pane.id;

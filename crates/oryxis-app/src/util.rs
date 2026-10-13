@@ -426,7 +426,7 @@ impl NotificationMode {
 /// as `code()`; maps to `oryxis_terminal::RightClickAction` at build.
 #[derive(Clone, Copy, PartialEq, Eq, Default, Debug)]
 pub(crate) enum RightClickMode {
-    /// Open a context menu (Copy All / Paste / Clear Scrollback).
+    /// Open a context menu (Copy Screen / Paste / Clear Scrollback).
     Menu,
     /// Paste the clipboard (current default; also the only mode where
     /// the copy-on-select "copy on right-click" sub-option applies).
