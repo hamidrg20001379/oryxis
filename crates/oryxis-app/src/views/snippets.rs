@@ -3,7 +3,7 @@
 use iced::Widget as _;
 use iced::border::Radius;
 use iced::widget::{
-    button, column, container, scrollable, text, text_editor, text_input, MouseArea, Space,
+    button, column, container, scrollable, text, text_input, MouseArea, Space,
 };
 use iced::widget::button::Status as BtnStatus;
 use iced::{Background, Border, Color, Element, Length, Padding};
@@ -501,7 +501,7 @@ impl Oryxis {
                     .boxed()
             };
 
-            let cmd_preview = crate::util::elide_chars(&snip.command, 30);
+            let cmd_preview = crate::util::elide_chars(&self.snippet_card_preview(snip), 30);
 
             // Tags read as a compact hashtag line under the preview;
             // display-only (editing stays in the comma field).
@@ -520,6 +520,14 @@ impl Oryxis {
             // Install-script category marker (issue #147); the per-host
             // "installed here" state lives on the terminal sidebar rows,
             // which know which host is focused.
+            if let Some(badge) = crate::views::snippet_steps::actions_badge(snip) {
+                info_col = info_col.push(Space::new().height(2).boxed()).push(
+                    text(badge)
+                        .size(10)
+                        .color(OryxisColors::t().accent)
+                        .wrapping(iced::widget::text::Wrapping::None).boxed(),
+                );
+            }
             if snip.install {
                 info_col = info_col.push(Space::new().height(2).boxed()).push(
                     text(t("snippet_install_badge"))
@@ -777,25 +785,11 @@ self.keynav_ring_content(kb_selected, card_el)
                 ),
             ),
             Space::new().height(14),
-            text(t("command_label")).size(12).color(OryxisColors::t().text_secondary),
+            text(t("snippet_actions")).size(12).color(OryxisColors::t().text_secondary),
             Space::new().height(4),
-            // Multi-line, auto-grows with content; container caps the height
-            // (~10 lines) and then it scrolls internally.
-            self.panel_nav_slot(
-                crate::keynav::RowAction::input(iced::widget::Id::new("panel-snippet-command")),
-                10.0,
-                container(
-                    text_editor(&self.snippet_form.command)
-                        .id(iced::widget::Id::new("panel-snippet-command"))
-                        .placeholder("sudo systemctl restart nginx")
-                        .on_action(|v| Message::Snippet(SnippetMessage::SnippetCommandAction(v)))
-                        .padding(10)
-                        .height(Length::Shrink)
-                        .style(crate::widgets::rounded_editor_style),
-                )
-                .height(Length::Shrink.max(240.0))
-                .boxed(),
-            ),
+            // One card per action; a single command reads like the
+            // snippet of old.
+            self.snippet_steps_editor(true),
         ]
         .width(Length::Fill)
         .align_x(dir_align_x());
@@ -822,10 +816,14 @@ self.keynav_ring_content(kb_selected, card_el)
 
         let panel_content = column![
             panel_header,
-            container(
-                column![form].width(Length::Fill).align_x(dir_align_x()),
+            // Scrolls: the list of actions has no fixed length.
+            iced::widget::scrollable(
+                container(
+                    column![form].width(Length::Fill).align_x(dir_align_x()),
+                )
+                .padding(Padding { top: 0.0, right: 20.0, bottom: 12.0, left: 20.0 }),
             )
-            .padding(Padding { top: 0.0, right: 20.0, bottom: 0.0, left: 20.0 })
+            .id(iced::widget::Id::new("panel-snippet-scroll"))
             .height(Length::Fill),
             panel_error,
             footer,

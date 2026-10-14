@@ -184,8 +184,6 @@ pub enum HotkeyAction {
     TerminalSaveOutput,
     /// Copy the focused pane's displayed screen only.
     TerminalCopyScreen,
-    /// Paste the clipboard into the focused pane and press Enter.
-    TerminalPasteAndExecute,
     /// Copy the last command the focused pane's shell ran, with its
     /// output, as the shell marked them (OSC 133). Unbound out of the box
     /// like the other pane copy verbs.
@@ -273,7 +271,6 @@ impl HotkeyAction {
             ScrollbackPageDown,
             TerminalSaveOutput,
             TerminalCopyScreen,
-            TerminalPasteAndExecute,
             TerminalCopyLastCommand,
             TerminalClearScrollback,
             TerminalContextMenu,
@@ -334,7 +331,6 @@ impl HotkeyAction {
             TerminalCopy => "terminal_copy",
             TerminalPaste => "terminal_paste",
             TerminalPasteSelection => "terminal_paste_selection",
-            TerminalPasteAndExecute => "terminal_paste_execute",
             TerminalSelectAll => "terminal_select_all",
             ScrollbackPageUp => "scrollback_page_up",
             ScrollbackPageDown => "scrollback_page_down",
@@ -354,10 +350,6 @@ impl HotkeyAction {
             LockVault => "lock_vault",
             ConnectInNewWindow => "connect_in_new_window",
         }
-    }
-
-    pub fn from_id(id: &str) -> Option<Self> {
-        Self::all().iter().copied().find(|action| action.id() == id)
     }
 
     /// i18n key for the action's display label.
@@ -417,7 +409,6 @@ impl HotkeyAction {
             TerminalCopy => "terminal_copy",
             TerminalPaste => "terminal_paste",
             TerminalPasteSelection => "hotkey_terminal_paste_selection",
-            TerminalPasteAndExecute => "terminal_paste_execute",
             TerminalSelectAll => "select_all",
             ScrollbackPageUp => "hotkey_scrollback_page_up",
             ScrollbackPageDown => "hotkey_scrollback_page_down",
@@ -466,7 +457,6 @@ impl HotkeyAction {
                 | CloseAllTabs
                 | TerminalSaveOutput
                 | TerminalCopyScreen
-                | TerminalPasteAndExecute
                 | TerminalCopyLastCommand
                 | TerminalClearScrollback
                 | LockVault
@@ -505,7 +495,6 @@ impl HotkeyAction {
                 | CopyTabAddress
                 | TerminalSaveOutput
                 | TerminalCopyScreen
-                | TerminalPasteAndExecute
                 | TerminalCopyLastCommand
                 | TerminalClearScrollback
                 | TerminalContextMenu

@@ -25,7 +25,6 @@ mod binding;
 mod defaults;
 pub mod layout;
 mod presets;
-mod sequences;
 
 pub use action::{HotkeyAction, MouseBindingOwner};
 pub use binding::{
@@ -34,4 +33,3 @@ pub use binding::{
 };
 pub use defaults::{default_bindings, HotkeyBindings, HotkeyMap, HotkeySlot};
 pub use presets::ShortcutPreset;
-pub use sequences::{ShortcutSequence, ShortcutSequenceForm};

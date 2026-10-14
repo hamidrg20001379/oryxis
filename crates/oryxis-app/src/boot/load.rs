@@ -1046,9 +1046,6 @@ impl Oryxis {
     /// new-connection defaults, including the one-shot setting migrations.
     fn load_vault_hotkeys_and_defaults(&mut self) {
         if let Some(vault) = &self.vault {
-            if let Ok(Some(value)) = vault.get_setting("shortcut_sequences") {
-                self.shortcut_sequences = crate::hotkeys::ShortcutSequence::parse_list(&value);
-            }
             // Hotkey overrides: each action persists under
             // `hotkey_<id>` with the canonical serialized form, chords
             // space-separated (`"ctrl+shift+v shift+ins"`). Defaults
@@ -1381,6 +1378,10 @@ impl Oryxis {
             }
             if let Ok(Some(v)) = vault.get_setting("session_log_file_dir") {
                 self.prefs.session_log_file_dir =
+                    (!v.trim().is_empty()).then(|| v.trim().to_string());
+            }
+            if let Ok(Some(v)) = vault.get_setting("snippet_output_dir") {
+                self.prefs.snippet_output_dir =
                     (!v.trim().is_empty()).then(|| v.trim().to_string());
             }
             if let Ok(Some(v)) = vault.get_setting("connection_history") {

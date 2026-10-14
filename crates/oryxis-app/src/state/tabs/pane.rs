@@ -512,6 +512,9 @@ pub(crate) struct LoginScriptRun {
     /// in the bastion's menu instead of the asset's shell, and a
     /// menu-driven bastion drains type-ahead it did not ask for.
     pub pending_startup: Option<String>,
+    /// The startup snippet's actions, held the same way: started as a
+    /// run when the script finishes, dropped with it on an abort.
+    pub pending_run: Option<(String, Vec<oryxis_core::models::SnippetStep>)>,
     /// Generation for the timeout tick, so a stale wake-up from a run
     /// that already finished cannot abort the one after it.
     pub generation: u64,

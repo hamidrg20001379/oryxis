@@ -159,7 +159,8 @@ impl Oryxis {
             // Esc refuses, and the refusal is remembered for the
             // session: a rule that could re-ask on the next matching
             // line would be a way to wear the user down.
-            Modal::TriggerConfirm => self.resolve_trigger_confirm(false),
+            // A refusal starts nothing, so there is no task to keep.
+            Modal::TriggerConfirm => drop(self.resolve_trigger_confirm(false)),
             // Esc opens nothing. No state to remember either way: the
             // next click on the link asks again, which is right for a
             // question about one specific target.

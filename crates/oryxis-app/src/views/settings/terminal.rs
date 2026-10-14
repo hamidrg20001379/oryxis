@@ -306,6 +306,52 @@ impl Oryxis {
             .boxed()
     }
 
+    /// The folder a snippet's save steps write into: the resolved path
+    /// with a Browse button, and a Reset when a custom folder is set.
+    fn snippet_output_dir_row(&self) -> Element<'_, Message> {
+        let browse = self.settings_nav_slot_labeled(
+            crate::i18n::t("snippet_output_dir"),
+            crate::keynav::RowAction::activate(Message::Settings(SettingsMessage::PickSnippetOutputDir)),
+            8.0,
+            crate::widgets::styled_button_opt(
+                crate::i18n::t("browse"),
+                Some(Message::Settings(SettingsMessage::PickSnippetOutputDir)),
+                crate::theme::OryxisColors::t().accent,
+            ),
+        );
+        let mut row = crate::widgets::dir_row(vec![
+            column![
+                text(crate::i18n::t("snippet_output_dir"))
+                    .size(13)
+                    .color(crate::theme::OryxisColors::t().text_primary),
+                Space::new().height(2),
+                text(self.snippet_output_dir().display().to_string())
+                    .size(11)
+                    .color(crate::theme::OryxisColors::t().text_muted),
+            ]
+            .width(Length::Fill)
+            .boxed(),
+            Space::new().width(10).boxed(),
+            browse,
+        ]);
+        if self.prefs.snippet_output_dir.is_some() {
+            let reset = self.settings_nav_slot(
+                crate::keynav::RowAction::activate(Message::Settings(SettingsMessage::ClearSnippetOutputDir)),
+                8.0,
+                crate::widgets::styled_button_opt(
+                    crate::i18n::t("reset"),
+                    Some(Message::Settings(SettingsMessage::ClearSnippetOutputDir)),
+                    crate::theme::OryxisColors::t().text_muted,
+                ),
+            );
+            row = row.push(Space::new().width(8).boxed()).push(reset);
+        }
+        container(row.align_y(iced::Alignment::Center))
+            .padding(Padding { top: 10.0, ..Padding::ZERO })
+            .width(Length::Fill)
+            .boxed()
+    }
+
     /// Row for the ZMODEM download folder: the resolved path (default or
     /// configured) plus a Browse button, and a Reset when a custom folder
     /// is set. Always shown (transfers work regardless of other toggles).
@@ -875,6 +921,7 @@ impl Oryxis {
             Space::new().height(10),
             self.nav_toggle_row(crate::i18n::t("cmd_history_file"), self.prefs.command_history_file, Message::CommandHistory(CommandHistoryMessage::ToggleCommandHistoryFile)),
             self.command_history_dir_row(),
+            self.snippet_output_dir_row(),
         ];
 
         // Sidebar: which region each tab docks to (issue #102) and how

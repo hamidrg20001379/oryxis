@@ -53,8 +53,11 @@ use crate::protocol::{DeltaRef, SyncRecord};
 /// cannot deserialize; since the record list is decoded whole, one such
 /// host failed the entire merge on an older build. Reads accept v2 and
 /// up, writes stamp v5.
+///
+/// v6: `Snippet.steps`, a field a v5 reader drops on its next save (see
+/// `PROTOCOL_VERSION` v10). Reads accept v2 and up, writes stamp v6.
 const SNAPSHOT_MAGIC: &[u8; 6] = b"ORXSNP";
-const SNAPSHOT_VERSION: u16 = 5;
+const SNAPSHOT_VERSION: u16 = 6;
 /// Oldest snapshot version this build still reads (same AEAD layout).
 const SNAPSHOT_MIN_READ_VERSION: u16 = 2;
 const HEADER_LEN: usize = SNAPSHOT_MAGIC.len() + 2;

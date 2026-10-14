@@ -43,6 +43,7 @@ pub(crate) mod sidebar_host_config;
 pub(crate) mod sidebar_hosts_tree;
 pub(crate) mod sidebar_chat;
 pub(crate) mod sidebar_snippets;
+pub(crate) mod snippet_steps;
 pub(crate) mod snippets;
 pub(crate) mod status_bar;
 pub(crate) mod tab_bar;

@@ -140,3 +140,33 @@ fn legacy_snippet_payload_defaults_to_not_install() {
     let s: Snippet = serde_json::from_str(json).unwrap();
     assert!(!s.install);
 }
+
+#[test]
+fn snippet_steps_round_trip_through_the_vault() {
+    use oryxis_core::models::{SaveFileContent, SaveFileMode, SaveFileStep, SnippetStep, SnippetWait};
+    let vault = unlocked_vault();
+    let mut snip = Snippet::new("deploy", "");
+    snip.set_actions(vec![
+        SnippetStep::Command { text: "make deploy".into() },
+        SnippetStep::Wait(SnippetWait::CommandEnd { timeout_ms: 0, continue_on_error: true }),
+        SnippetStep::SaveFile(SaveFileStep {
+            name: "{host}.log".into(),
+            mode: SaveFileMode::Append,
+            content: SaveFileContent::LastCommand,
+        }),
+    ]);
+    vault.save_snippet(&snip).unwrap();
+    let back = vault.list_snippets().unwrap().into_iter().find(|s| s.id == snip.id).unwrap();
+    assert_eq!(back.steps, snip.steps);
+    assert_eq!(back.command, "make deploy");
+}
+
+#[test]
+fn a_snippet_of_old_keeps_no_steps_in_the_vault() {
+    let vault = unlocked_vault();
+    let snip = Snippet::new("ls", "ls -la");
+    vault.save_snippet(&snip).unwrap();
+    let back = vault.list_snippets().unwrap().into_iter().find(|s| s.id == snip.id).unwrap();
+    assert!(back.steps.is_empty());
+    assert_eq!(back.command, "ls -la");
+}

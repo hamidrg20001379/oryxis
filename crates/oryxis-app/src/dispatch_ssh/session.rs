@@ -549,13 +549,16 @@ impl Oryxis {
                         (c.startup_snippet_id.or(inherited), c.initial_command.clone())
                     })
                     .unwrap_or((None, None));
-                let fallback_cmd = match startup_snip {
-                    Some(id) => self
-                        .snippets
-                        .iter()
-                        .find(|s| s.id == id)
-                        .map(|s| s.command.clone()),
-                    None => startup_lit,
+                // A startup snippet with actions runs them (variables are
+                // not asked for here, as a startup command's are not).
+                let (fallback_cmd, startup_run) = match startup_snip
+                    .and_then(|id| self.snippets.iter().find(|s| s.id == id))
+                    .cloned()
+                {
+                    Some(snip) if snip.has_steps() => (None, self.startup_snippet_run(&snip)),
+                    Some(snip) => (Some(snip.command.clone()), None),
+                    None if startup_snip.is_some() => (None, None),
+                    None => (startup_lit, None),
                 };
                 let initial = self
                     .pane_script_overrides
@@ -568,7 +571,22 @@ impl Oryxis {
                 // bastion's menu, and a menu-driven bastion drains
                 // type-ahead it did not ask for. The runner re-sends it
                 // once the script has reached the asset's shell.
+                // A script override replaces the startup snippet whole.
+                let startup_run = startup_run.filter(|_| initial.is_none());
                 let (initial, login_script_task) = self.arm_login_script(pane_id, initial);
+                // The snippet's run waits for the login script like the
+                // startup command does, or starts now when there is none.
+                let startup_run_task = match startup_run {
+                    Some(run) => match self.pane_by_id_mut(pane_id).and_then(|p| p.login_script.as_mut()) {
+                        Some(script) => {
+                            script.pending_run = Some(run);
+                            Task::none()
+                        }
+                        None => self.start_snippet_run_on_pane(pane_id, run.0, run.1),
+                    },
+                    None => Task::none(),
+                };
+                let login_script_task = Task::batch([login_script_task, startup_run_task]);
                 if let Some(cmd) = initial {
                     let payload = format!("{cmd}\n");
                     if let Err(e) = session.write(payload.as_bytes()) {

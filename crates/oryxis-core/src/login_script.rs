@@ -269,6 +269,13 @@ enum CompiledPattern {
 }
 
 impl CompiledPattern {
+    fn compile(pattern: &ExpectPattern) -> Result<Self, regex::Error> {
+        Ok(match pattern {
+            ExpectPattern::Suffix(s) => CompiledPattern::Suffix(s.trim_end().to_lowercase()),
+            ExpectPattern::Regex(r) => CompiledPattern::Regex(regex::Regex::new(r)?),
+        })
+    }
+
     fn matches(&self, tail: &str, tail_lower: &str) -> bool {
         match self {
             CompiledPattern::Suffix(s) => tail_lower.ends_with(s.as_str()),
@@ -304,15 +311,12 @@ impl ScriptRunner {
     pub fn new(steps: &[LoginStep], window: Duration, now: Instant) -> Result<Self, ScriptError> {
         let mut compiled = Vec::with_capacity(steps.len());
         for (i, step) in steps.iter().enumerate() {
-            let expect = match &step.expect {
-                None => None,
-                Some(ExpectPattern::Suffix(s)) => {
-                    Some(CompiledPattern::Suffix(s.trim_end().to_lowercase()))
-                }
-                Some(ExpectPattern::Regex(r)) => Some(CompiledPattern::Regex(
-                    regex::Regex::new(r).map_err(|source| ScriptError::Pattern { step: i, source })?,
-                )),
-            };
+            let expect = step
+                .expect
+                .as_ref()
+                .map(CompiledPattern::compile)
+                .transpose()
+                .map_err(|source| ScriptError::Pattern { step: i, source })?;
             compiled.push(CompiledStep {
                 expect,
                 send: step.send.clone(),
@@ -440,14 +444,41 @@ impl ScriptRunner {
     }
 
     fn trim_tail(&mut self) {
-        if self.tail.len() > TAIL_CAP {
-            let cut = self.tail.len() - TAIL_CAP;
-            // Cut on a char boundary; the tail is lossy UTF-8 already.
-            let cut = (cut..self.tail.len())
-                .find(|i| self.tail.is_char_boundary(*i))
-                .unwrap_or(0);
-            self.tail.drain(..cut);
-        }
+        trim_tail(&mut self.tail);
+    }
+}
+
+/// Keep the last [`TAIL_CAP`] bytes of `tail`, cut on a char boundary
+/// (the tail is lossy UTF-8 already).
+fn trim_tail(tail: &mut String) {
+    if tail.len() > TAIL_CAP {
+        let cut = tail.len() - TAIL_CAP;
+        let cut = (cut..tail.len()).find(|i| tail.is_char_boundary(*i)).unwrap_or(0);
+        tail.drain(..cut);
+    }
+}
+
+/// One pattern watched over a live output stream: a login script step's
+/// matcher, for anything else that waits on output (a snippet's wait
+/// step). Same rules: ANSI stripped, a suffix compared case-insensitively
+/// against the end of what arrived, a regex anywhere in the kept tail.
+#[derive(Debug)]
+pub struct OutputMatcher {
+    pattern: CompiledPattern,
+    tail: String,
+}
+
+impl OutputMatcher {
+    pub fn new(pattern: &ExpectPattern) -> Result<Self, regex::Error> {
+        Ok(Self { pattern: CompiledPattern::compile(pattern)?, tail: String::new() })
+    }
+
+    /// Feed one output batch; `true` once the pattern matches.
+    pub fn feed(&mut self, output: &[u8]) -> bool {
+        self.tail.push_str(&strip_ansi_lossy(output));
+        trim_tail(&mut self.tail);
+        let lower = self.tail.to_lowercase();
+        self.pattern.matches(&self.tail, &lower)
     }
 }
 
@@ -537,6 +568,17 @@ mod tests {
                 _ => None,
             })
             .collect()
+    }
+
+    #[test]
+    fn an_output_matcher_sees_a_prompt_split_across_batches() {
+        let mut m = OutputMatcher::new(&ExpectPattern::Suffix("Done.".into())).unwrap();
+        assert!(!m.feed(b"building...\r\n\x1b[32mDo"));
+        assert!(m.feed(b"ne.\x1b[0m"));
+        let mut r = OutputMatcher::new(&ExpectPattern::Regex(r"exit code \d+".into())).unwrap();
+        assert!(!r.feed(b"running"));
+        assert!(r.feed(b"\nexit code 0\nmore"));
+        assert!(OutputMatcher::new(&ExpectPattern::Regex("(".into())).is_err());
     }
 
     #[test]

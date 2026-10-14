@@ -407,7 +407,8 @@ impl Oryxis {
             let row = snippet_row(
                 idx,
                 &snip.label,
-                &snip.command,
+                self.snippet_card_preview(snip),
+                crate::views::snippet_steps::actions_badge(snip),
                 self.cur_nav().hover.snippet_card == Some(idx),
                 snip.install.then(|| {
                     install_host
@@ -562,19 +563,6 @@ impl Oryxis {
                 .size(13)
                 .style(crate::widgets::rounded_input_style)
                 .boxed();
-        // Multi-line, auto-grows with content; container caps the height
-        // (~8 lines) and then it scrolls internally.
-        let command_input: Element<'_, Message> = container(
-            iced::widget::text_editor(&self.snippet_form.command)
-                .placeholder("sudo systemctl restart nginx")
-                .on_action(|v| Message::Snippet(SnippetMessage::SnippetCommandAction(v)))
-                .padding(8)
-                .size(13)
-                .height(Length::Shrink)
-                .style(crate::widgets::rounded_editor_style),
-        )
-        .height(Length::Shrink.max(180.0))
-        .boxed();
 
         let error: Element<'_, Message> = if let Some(err) = &self.snippet_form.error {
             text(err.clone()).size(11).color(c.error).boxed()
@@ -614,9 +602,9 @@ impl Oryxis {
             Space::new().height(4),
             self.snippet_hotkey_row(false),
             Space::new().height(12),
-            text(t("command_label")).size(12).color(c.text_secondary),
+            text(t("snippet_actions")).size(12).color(c.text_secondary),
             Space::new().height(4),
-            command_input,
+            self.snippet_steps_editor(false),
             Space::new().height(10),
             error,
             Space::new().height(12),
@@ -647,7 +635,11 @@ impl Oryxis {
             form = form.push(Space::new().height(8).boxed()).push(delete.boxed());
         }
 
-        form.width(Length::Fill).height(Length::Fill).boxed()
+        // Scrolls: the list of actions has no fixed length.
+        iced::widget::scrollable(form.width(Length::Fill))
+            .id(iced::widget::Id::new("sidebar-snippet-editor-scroll"))
+            .height(Length::Fill)
+            .boxed()
     }
 }
 
@@ -704,7 +696,11 @@ fn action_btn<'a>(
 fn snippet_row<'a>(
     idx: usize,
     label: &'a str,
-    command: &'a str,
+    // The first command, or what the first action does.
+    command: String,
+    // "N actions" for a snippet with several; such a snippet runs and is
+    // never pasted, so its row offers no Paste.
+    actions: Option<String>,
     hovered: bool,
     // Install-script hint (issue #147): `None` = ordinary snippet;
     // `Some(None)` = install script, no recorded run on this host;
@@ -723,12 +719,16 @@ fn snippet_row<'a>(
             head
         }
     };
+    let pasteable = actions.is_none();
     let mut info = column![
         text(label).size(13).color(c.text_primary),
         text(preview).size(11).color(c.text_muted),
     ]
     .spacing(2)
     .width(Length::Fill);
+    if let Some(badge) = actions {
+        info = info.push(text(badge).size(10).color(c.accent).boxed());
+    }
     // The category marker doubles as the per-host memory: "installed
     // here" is a hint, not a lock, so the row stays runnable.
     if let Some(ran) = install {
@@ -754,12 +754,14 @@ fn snippet_row<'a>(
         });
 
     let row_el: Element<'a, Message> = if hovered {
+        let mut buttons =
+            vec![action_btn(iced_fonts::lucide::pencil(), Message::Snippet(SnippetMessage::EditSnippet(idx)), t("edit_snippet"))];
+        if pasteable {
+            buttons.push(action_btn(iced_fonts::lucide::clipboard_copy(), Message::Snippet(SnippetMessage::PasteSnippet(idx)), t("snippet_paste")));
+        }
+        buttons.push(action_btn(iced_fonts::lucide::play(), Message::Snippet(SnippetMessage::RunSnippet(idx)), t("snippet_run")));
         let actions = container(
-            dir_row(vec![
-                action_btn(iced_fonts::lucide::pencil(), Message::Snippet(SnippetMessage::EditSnippet(idx)), t("edit_snippet")),
-                action_btn(iced_fonts::lucide::clipboard_copy(), Message::Snippet(SnippetMessage::PasteSnippet(idx)), t("snippet_paste")),
-                action_btn(iced_fonts::lucide::play(), Message::Snippet(SnippetMessage::RunSnippet(idx)), t("snippet_run")),
-            ])
+            dir_row(buttons)
             .spacing(2)
             .align_y(iced::Alignment::Center),
         )

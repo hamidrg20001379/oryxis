@@ -136,6 +136,7 @@ pub(crate) static SETTINGS_INDEX: &[SettingsIndexEntry] = &[
     e(S::Terminal, "shell_integration_copy", "shell integration snippet osc 633 tmux key nonce bashrc zshrc"),
     e(S::Terminal, "shell_integration_rotate", "shell integration rotate key nonce regenerate revoke"),
     e(S::Terminal, "cmd_history_file", "command history text file log append export"),
+    e(S::Terminal, "snippet_output_dir", "snippet save file output folder directory steps actions"),
     e(S::Terminal, "smart_contrast", "smart contrast readability colors legibility blue"),
     e(S::Terminal, "terminal_opacity", "opacity transparency transparent translucent background see through blur glass"),
     e(S::Terminal, "terminal_bg_image", "background image picture wallpaper photo backdrop"),

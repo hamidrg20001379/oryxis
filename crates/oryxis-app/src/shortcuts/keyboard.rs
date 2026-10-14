@@ -220,26 +220,6 @@ impl Oryxis {
                     _ => false,
                 }
         };
-        // User-authored sequences run before snippets. They are terminal actions
-        // by definition and stay out of modal input and shell control chords.
-        if !modal_owns_keys && pty_owns_keys {
-            let sequence_steps = self
-                .shortcut_sequences
-                .iter()
-                .find(|sequence| {
-                    sequence.trigger.match_event(key, modifiers).is_some()
-                        && !sequence.trigger.is_terminal_control_sequence()
-                })
-                .map(|sequence| sequence.steps.clone());
-            if let Some(steps) = sequence_steps {
-                return Some(Task::batch(
-                    steps
-                        .into_iter()
-                        .map(|action| self.dispatch_hotkey_action(action, FamilyMatch::Plain)),
-                ));
-            }
-        }
-
         // Resolve the hit under an immutable borrow of the binding
         // table, then dispatch once the borrow is gone:
         // `dispatch_hotkey_action` takes `&mut self`. The old code
@@ -773,7 +753,6 @@ impl Oryxis {
             // itself: the widget can only write to a local PTY, so a
             // widget-side paste would silently do nothing over SSH.
             TerminalPaste => self.paste_clipboard_into_active(),
-            TerminalPasteAndExecute => self.paste_clipboard_and_execute_into_active(),
             // Copy / select-all / scrollback paging are performed by the
             // terminal WIDGET, which owns the selection and the scroll
             // offset (both live in its canvas state, out of reach from

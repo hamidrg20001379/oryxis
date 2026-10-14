@@ -171,8 +171,6 @@ pub enum TerminalMessage {
     /// tab rides along because the read resolves later and the user may have
     /// switched tabs in between.
     TerminalPasteResolved(Uuid, Option<super::Redacted>),
-    /// Clipboard text for a shortcut sequence's paste-and-execute step.
-    TerminalPasteAndExecuteResolved(Uuid, Option<super::Redacted>),
     /// PRIMARY selection handed back by the runtime for a middle-click /
     /// Shift+Insert paste, with the tab it was requested FROM and the text
     /// that pane last selected itself. The system buffer wins (the user may

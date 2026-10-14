@@ -608,6 +608,11 @@ pub(crate) struct AppPrefs {
     /// Folder those files live in; `None` = `~/.oryxis/session-logs/`.
     /// Persisted as `session_log_file_dir` (a set value only).
     pub(crate) session_log_file_dir: Option<String>,
+    /// Folder a snippet's save steps write into; `None` =
+    /// `<Documents>/Oryxis` (`<home>/Oryxis` without one). Persisted as
+    /// `snippet_output_dir` (a set value only). Device-local: a snippet
+    /// names a file, never where it goes.
+    pub(crate) snippet_output_dir: Option<String>,
     /// Whether connection events (connect / disconnect / auth failure /
     /// error) are recorded to the vault log. Gates every `add_log` site.
     pub(crate) connection_history: bool,
@@ -769,6 +774,7 @@ impl Default for AppPrefs {
             session_log_compress: true,
             session_log_file: false,
             session_log_file_dir: None,
+            snippet_output_dir: None,
             connection_history: false,
             logs_retention: "off".into(),
             session_log_max_bytes: None,

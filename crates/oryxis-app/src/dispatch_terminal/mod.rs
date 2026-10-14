@@ -180,18 +180,6 @@ impl Oryxis {
         })
     }
 
-    pub(crate) fn paste_clipboard_and_execute_into_active(&mut self) -> Task<Message> {
-        let Some(tab_id) = self.cur_active_tab().and_then(|i| self.tabs.get(i)).map(|t| t._id) else {
-            return Task::none();
-        };
-        crate::dispatch_global::read_clipboard_text(move |text| {
-            Message::Terminal(TerminalMessage::TerminalPasteAndExecuteResolved(
-                tab_id,
-                text.map(Into::into),
-            ))
-        })
-    }
-
     /// Dispatch a terminal message: `PtyOutput` and `KeyboardEvent`
     /// route straight to the `output` / `keyboard` submodule handlers,
     /// the remaining small arms match inline. Exhaustive on purpose: a
@@ -676,7 +664,7 @@ impl Oryxis {
                 self.link_tunnel_closed(pane_id, port);
             }
             TerminalMessage::TriggerConfirmDecision(allow) => {
-                self.resolve_trigger_confirm(allow);
+                return self.resolve_trigger_confirm(allow);
             }
             TerminalMessage::TerminalSyncFlush(pane_id) => {
                 if let Some(pane) = self
@@ -837,20 +825,6 @@ impl Oryxis {
                     }
                     Some(_) => paste_trace("resolved", "clipboard empty", "", None),
                     None => paste_trace("resolved", "clipboard unavailable", "", None),
-                }
-            }
-            TerminalMessage::TerminalPasteAndExecuteResolved(tab_id, text) => {
-                if let Some(text) = text.map(crate::messages::Redacted::into_inner)
-                    && !text.is_empty()
-                {
-                    self.pending_paste_execute = true;
-                    self.paste_text_into_tab(tab_id, &text);
-                    if self.pending_paste.is_none() {
-                        if let Some(tab_idx) = self.tab_index_by_id(tab_id) {
-                            self.write_input_to_tab(tab_idx, b"\r");
-                        }
-                        self.pending_paste_execute = false;
-                    }
                 }
             }
             TerminalMessage::ShowPaneHeaderMenu(pane_id) => {
@@ -1073,17 +1047,10 @@ impl Oryxis {
                         }
                         None => self.write_paste_to_tab(tab_id, &text),
                     }
-                    if self.pending_paste_execute {
-                        if let Some(tab_idx) = self.tab_index_by_id(tab_id) {
-                            self.write_input_to_tab(tab_idx, b"\r");
-                        }
-                        self.pending_paste_execute = false;
-                    }
                 }
             }
             TerminalMessage::CancelPendingPaste => {
                 self.pending_paste = None;
-                self.pending_paste_execute = false;
                 self.pending_paste_install = None;
             }
             // Synthesized input from the terminal widget: mouse-tracking

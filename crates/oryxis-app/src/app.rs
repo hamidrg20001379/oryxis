@@ -671,8 +671,6 @@ pub struct Oryxis {
     /// requested rather than resolved on confirm: see
     /// `dispatch_terminal::paste_text_into_tab`.
     pub(crate) pending_paste: Option<(uuid::Uuid, String)>,
-    /// Whether the parked paste should submit a newline after confirmation.
-    pub(crate) pending_paste_execute: bool,
     /// Set alongside `pending_paste` when the parked text is an INSTALL
     /// script (issue #147): `(snippet id, run)`. The confirm then sends
     /// through the snippet injection (newline outside the bracketed
@@ -945,9 +943,6 @@ pub struct Oryxis {
     /// loaded from the settings table. Mutated by the Shortcuts
     /// editor; read on every `KeyboardEvent` in dispatch_terminal.
     pub(crate) hotkey_bindings: crate::hotkeys::HotkeyMap,
-    /// User-authored ordered action lists, edited in Settings → Shortcuts.
-    pub(crate) shortcut_sequences: Vec<crate::hotkeys::ShortcutSequence>,
-    pub(crate) shortcut_sequence_form: crate::hotkeys::ShortcutSequenceForm,
     /// Action currently being re-bound from Settings → Shortcuts.
     /// `Some` puts the keyboard handler in capture mode: the next
     /// KeyPressed becomes the new binding (Esc cancels). `None` is
@@ -1213,6 +1208,14 @@ pub struct Oryxis {
     /// Snippet run/paste waiting on its `{placeholders}` (modal open
     /// while `Some`).
     pub(crate) pending_snippet_vars: Option<crate::state::PendingSnippetVars>,
+    /// Snippets running their actions, one per pane at most
+    /// (`dispatch_snippet_run.rs`).
+    pub(crate) snippet_runs: Vec<crate::snippet_run::SnippetRun>,
+    /// Last run id handed out.
+    pub(crate) snippet_run_seq: u64,
+    /// Startup snippets whose login script just finished, started by the
+    /// output funnel (pane, label, steps).
+    pub(crate) startup_runs_due: Vec<(uuid::Uuid, String, Vec<oryxis_core::models::SnippetStep>)>,
 
     // Port forwards (standalone entity, independent of any terminal)
     pub(crate) port_forward_rules:

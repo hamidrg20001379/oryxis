@@ -272,6 +272,10 @@ impl Oryxis {
         // A batch connect from the host list (issue #230) drains the same
         // way and under the same in-flight rule, one dial at a time.
         extra.extend(self.advance_batch_dials());
+        // A snippet run whose pane went away (closed, its tab torn down)
+        // ends with it, whichever path closed the pane; one waiting on
+        // the Save Output dialog goes on once it is answered.
+        extra.extend(self.snippet_runs_housekeeping());
         // Extra windows: close the ones left without a tab, bring the
         // main window forward when one of its verbs was used elsewhere.
         extra.extend(self.window_housekeeping());

@@ -83,6 +83,28 @@ impl Oryxis {
                 self.persist_setting("session_log_file_dir", "");
                 self.prefs.session_log_file_dir = None;
             }
+            SettingsMessage::PickSnippetOutputDir => {
+                return Ok(Task::perform(
+                    tokio::task::spawn_blocking(|| {
+                        rfd::FileDialog::new()
+                            .set_title(crate::i18n::t("snippet_output_dir"))
+                            .pick_folder()
+                            .map(|p| p.display().to_string())
+                    }),
+                    |res| Message::Settings(SettingsMessage::SnippetOutputDirPicked(res.ok().flatten())),
+                ));
+            }
+            SettingsMessage::SnippetOutputDirPicked(dir) => {
+                if let Some(dir) = dir {
+                    self.persist_setting("snippet_output_dir", &dir);
+                    self.prefs.snippet_output_dir = Some(dir);
+                }
+            }
+            SettingsMessage::ClearSnippetOutputDir => {
+                // Empty is what boot reads as "default".
+                self.persist_setting("snippet_output_dir", "");
+                self.prefs.snippet_output_dir = None;
+            }
             SettingsMessage::SettingToggleConnectionHistory => {
                 self.prefs.connection_history = !self.prefs.connection_history;
                 self.persist_setting(

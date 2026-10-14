@@ -25,17 +25,6 @@ pub enum SettingsMessage {
     ResetHotkey(crate::hotkeys::HotkeyAction),
     /// Settings → Shortcuts: drop every user override.
     ResetAllHotkeys,
-    /// Settings → Shortcuts: create or edit a user-authored action list.
-    ShortcutSequenceNew,
-    ShortcutSequenceEdit(usize),
-    ShortcutSequenceCancelEdit,
-    ShortcutSequenceTriggerChanged(String),
-    ShortcutSequenceStepPicked(String),
-    ShortcutSequenceAddStep,
-    ShortcutSequenceRemoveStep(usize),
-    ShortcutSequenceMoveStep(usize, bool),
-    ShortcutSequenceSave,
-    ShortcutSequenceDelete(usize),
     /// Settings → Shortcuts: the preset selector picked a set (`None` =
     /// Oryxis's own).
     HotkeyPresetPicked(Option<crate::hotkeys::ShortcutPreset>),
@@ -596,6 +585,12 @@ pub enum SettingsMessage {
     /// Reset the plain-text session-log folder to the default
     /// (`~/.oryxis/session-logs/`).
     ClearSessionLogFileDir,
+    /// Pick the folder a snippet's save steps write into.
+    PickSnippetOutputDir,
+    /// The folder the picker came back with (`None` = cancelled).
+    SnippetOutputDirPicked(Option<String>),
+    /// Reset the snippet output folder to the default.
+    ClearSnippetOutputDir,
     /// Toggle the global "record connection events" (history) setting.
     SettingToggleConnectionHistory,
     // ── Login automations (issue #122) ──

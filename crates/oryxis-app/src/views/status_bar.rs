@@ -219,6 +219,27 @@ impl Oryxis {
             );
             items.push(Space::new().width(10).boxed());
         }
+        // A snippet running its actions on the focused pane: which one,
+        // how far, and a way to stop it.
+        if let Some(idx) = self.cur_active_tab()
+            && let Some(tab) = self.tabs.get(idx)
+            && let Some((run_id, label, step, total)) = self.snippet_run_progress(tab.active().id)
+        {
+            items.push(
+                text(
+                    crate::i18n::t("snippet_run_progress")
+                        .replace("{name}", label)
+                        .replace("{step}", &step.to_string())
+                        .replace("{total}", &total.to_string()),
+                )
+                .size(11)
+                .color(OryxisColors::t().accent)
+                .boxed(),
+            );
+            items.push(Space::new().width(6).boxed());
+            items.push(snippet_run_stop_btn(run_id));
+            items.push(Space::new().width(10).boxed());
+        }
         // Host vitals (issue #83, the MobaXterm-style bar): the same
         // samples the sidebar Monitor tab renders, condensed to one line.
         // Behind its own setting AND the host's monitoring opt-in, so it
@@ -608,6 +629,27 @@ fn privacy_segment_btn(masking: bool, overridden: bool) -> Element<'static, Mess
             button::Style {
                 background: Some(Background::Color(bg)),
                 border: Border { radius: Radius::from(5.0), color: border_color, width: 1.0 },
+                ..Default::default()
+            }
+        })
+        .boxed()
+}
+
+/// Stop the snippet run on the focused pane.
+fn snippet_run_stop_btn(run_id: u64) -> Element<'static, Message> {
+    button(text(crate::i18n::t("cancel")).size(11).color(OryxisColors::t().error))
+        .padding(Padding { top: 1.0, right: 8.0, bottom: 1.0, left: 8.0 })
+        .on_press(Message::Snippet(crate::messages::SnippetMessage::CancelSnippetRun(run_id)))
+        .style(|_, status| {
+            let c = OryxisColors::t();
+            let bg = match status {
+                BtnStatus::Pressed => Color { a: 0.22, ..c.error },
+                BtnStatus::Hovered => Color { a: 0.14, ..c.error },
+                _ => Color::TRANSPARENT,
+            };
+            button::Style {
+                background: Some(Background::Color(bg)),
+                border: Border { radius: Radius::from(5.0), color: Color { a: 0.35, ..c.error }, width: 1.0 },
                 ..Default::default()
             }
         })

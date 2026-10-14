@@ -800,3 +800,23 @@ fn security_settings_never_ride_a_portable_file() {
         "ordinary preferences must still travel"
     );
 }
+
+#[test]
+fn snippet_steps_survive_export_and_import() {
+    use oryxis_core::models::{SnippetStep, SnippetWait};
+    let vault = unlocked_vault_with("alpha");
+    let mut snip = Snippet::new("two steps", "");
+    snip.set_actions(vec![
+        SnippetStep::Command { text: "uptime".into() },
+        SnippetStep::Wait(SnippetWait::Time { ms: 500 }),
+        SnippetStep::Action { id: "terminal_copy_screen".into() },
+    ]);
+    vault.save_snippet(&snip).unwrap();
+    let data = export_vault(&vault, "export-pw", all_options()).unwrap();
+    let target = unlocked_vault_with("bravo");
+    import_vault(&target, &data, "export-pw", &ExportSelection::all(), None).unwrap();
+    let got = target.list_snippets().unwrap();
+    assert_eq!(got.len(), 1);
+    assert_eq!(got[0].steps, snip.steps);
+    assert_eq!(got[0].command, "uptime");
+}

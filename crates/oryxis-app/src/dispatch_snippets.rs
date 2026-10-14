@@ -119,6 +119,9 @@ impl Oryxis {
         let Some(snip) = self.snippets.get(idx) else {
             return Task::none();
         };
+        if snip.has_steps() {
+            return self.snippet_run_or_prompt(idx, run);
+        }
         let cmd = snip.command.clone();
         // Install scripts (issue #147) never send on the click alone:
         // whatever the path (Run or Paste, with or without variables),
@@ -153,6 +156,48 @@ impl Oryxis {
             run,
             install,
             vars,
+            steps: None,
+        });
+        crate::widgets::focus_input(iced::widget::Id::new("snippet-var-0"))
+    }
+
+    /// [`Self::snippet_send_or_prompt`] for a snippet with actions: it
+    /// runs (a paste of several actions has no meaning), expanded first,
+    /// its variables asked once for every command.
+    fn snippet_run_or_prompt(&mut self, idx: usize, run: bool) -> Task<Message> {
+        let Some(snip) = self.snippets.get(idx) else {
+            return Task::none();
+        };
+        if !run {
+            return self.show_toast(crate::i18n::t("snippet_steps_cannot_paste").to_string());
+        }
+        // An install script is one command shown whole before it runs
+        // (#147); the editor never saves one with actions, a peer might.
+        if snip.install {
+            return self.show_toast(crate::i18n::t("snippet_steps_install_refused").to_string());
+        }
+        let label = snip.label.clone();
+        let steps = match crate::snippet_run::flatten(&self.snippets, snip) {
+            Ok(steps) => steps,
+            Err(e) => return self.show_toast(crate::dispatch_snippet_run::plan_error_text(&label, &e)),
+        };
+        let Some(tab_idx) = self.snippet_injection_tab() else {
+            return Task::none();
+        };
+        let vars = crate::snippet_run::plan_placeholders(&steps);
+        if vars.is_empty() {
+            return self.start_snippet_run(tab_idx, label, steps);
+        }
+        let Some(target_tab) = self.tabs.get(tab_idx).map(|t| t._id) else {
+            return Task::none();
+        };
+        self.pending_snippet_vars = Some(crate::state::PendingSnippetVars {
+            target_tab,
+            command: String::new(),
+            run: true,
+            install: None,
+            vars,
+            steps: Some((label, steps)),
         });
         crate::widgets::focus_input(iced::widget::Id::new("snippet-var-0"))
     }
@@ -232,7 +277,9 @@ impl Oryxis {
                 self.overlay = None;
                 self.panels.snippet_panel = true;
                 self.snippet_form.label.clear();
-                self.snippet_form.command = iced::widget::text_editor::Content::new();
+                self.snippet_form.steps = vec![crate::state::StepForm::new(
+                    crate::state::StepKind::Command,
+                )];
                 self.snippet_form.group.clear();
                 self.snippet_form.tags_input.clear();
                 self.snippet_form.hotkey = None;
@@ -252,7 +299,24 @@ impl Oryxis {
             SnippetMessage::ToggleSnippetInstall => {
                 self.snippet_form.install = !self.snippet_form.install;
             }
-            SnippetMessage::SnippetCommandAction(action) => self.snippet_form.command.perform(action),
+            m @ (SnippetMessage::SnippetStepCommandAction(..)
+            | SnippetMessage::SnippetStepAdd
+            | SnippetMessage::SnippetStepRemove(_)
+            | SnippetMessage::SnippetStepMoveUp(_)
+            | SnippetMessage::SnippetStepMoveDown(_)
+            | SnippetMessage::SnippetStepKindPicked(..)
+            | SnippetMessage::SnippetStepActionPicked(..)
+            | SnippetMessage::SnippetStepSnippetPicked(..)
+            | SnippetMessage::SnippetStepPatternChanged(..)
+            | SnippetMessage::SnippetStepTimeoutChanged(..)
+            | SnippetMessage::SnippetStepSecondsChanged(..)
+            | SnippetMessage::SnippetStepFileNameChanged(..)
+            | SnippetMessage::SnippetStepToggleRegex(_)
+            | SnippetMessage::SnippetStepToggleContinue(_)
+            | SnippetMessage::SnippetStepSaveModePicked(..)
+            | SnippetMessage::SnippetStepSaveContentPicked(..)) => {
+                self.handle_snippet_step_edit(m);
+            }
             SnippetMessage::ToggleSnippetTagFilter => {
                 self.prefs.snippet_tag_filter = !self.prefs.snippet_tag_filter;
                 self.persist_setting(
@@ -353,8 +417,11 @@ impl Oryxis {
                 if let Some(snip) = self.snippets.get(idx) {
                     self.panels.snippet_panel = true;
                     self.snippet_form.label = snip.label.clone();
-                    self.snippet_form.command =
-                        iced::widget::text_editor::Content::with_text(&snip.command);
+                    self.snippet_form.steps = snip
+                        .actions()
+                        .iter()
+                        .map(crate::state::StepForm::from_step)
+                        .collect();
                     self.snippet_form.group = snip.group.clone().unwrap_or_default();
                     self.snippet_form.tags_input = snip.tags.join(", ");
                     self.snippet_form.hotkey = snip
@@ -369,10 +436,13 @@ impl Oryxis {
                 }
             }
             SnippetMessage::SaveSnippet => {
-                if self.snippet_form.label.is_empty() || self.snippet_form.command.text().trim().is_empty() {
-                    self.snippet_form.error = Some("Label and command are required".into());
-                    return Task::none();
-                }
+                let steps = match self.snippet_form_steps() {
+                    Ok(steps) => steps,
+                    Err(e) => {
+                        self.snippet_form.error = Some(e);
+                        return Task::none();
+                    }
+                };
                 let mut snip = if let Some(id) = self.snippet_form.editing_id {
                     self.snippets.iter().find(|s| s.id == id).cloned()
                         .unwrap_or_else(|| oryxis_core::models::snippet::Snippet::new("", ""))
@@ -380,7 +450,7 @@ impl Oryxis {
                     oryxis_core::models::snippet::Snippet::new("", "")
                 };
                 snip.label = self.snippet_form.label.clone();
-                snip.command = self.snippet_form.command.text().trim_end().to_string();
+                snip.set_actions(steps);
                 snip.group = {
                     let g = self.snippet_form.group.trim();
                     (!g.is_empty()).then(|| g.to_string())
@@ -471,7 +541,15 @@ impl Oryxis {
                 }
             }
             SnippetMessage::ConfirmSnippetVars => {
-                if let Some(pending) = self.pending_snippet_vars.take() {
+                if let Some(mut pending) = self.pending_snippet_vars.take() {
+                    if let Some((label, steps)) = pending.steps.take() {
+                        // Gone means gone, as below.
+                        let Some(tab_idx) = self.tab_index_by_id(pending.target_tab) else {
+                            return Task::none();
+                        };
+                        let steps = crate::snippet_run::substitute(steps, &pending.vars);
+                        return self.start_snippet_run(tab_idx, label, steps);
+                    }
                     let cmd =
                         crate::util::substitute_snippet_vars(&pending.command, &pending.vars);
                     // Gone means gone: the tab that asked for this snippet
@@ -497,6 +575,11 @@ impl Oryxis {
             }
             SnippetMessage::CancelSnippetVars => {
                 self.pending_snippet_vars = None;
+            }
+            m @ (SnippetMessage::SnippetRunTimer(..)
+            | SnippetMessage::SnippetRunFileWritten(..)
+            | SnippetMessage::CancelSnippetRun(_)) => {
+                return self.handle_snippet_run(m).unwrap_or_else(crate::dispatch::unrouted);
             }
             SnippetMessage::SnippetHotkeyCaptureStart => {
                 self.snippet_form.hotkey_capturing = true;

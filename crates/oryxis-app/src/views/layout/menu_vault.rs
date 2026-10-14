@@ -1364,6 +1364,16 @@ impl Oryxis {
             Message::Terminal(TerminalMessage::TerminalClearScrollback(pane_id)),
             OryxisColors::t().text_secondary,
         ));
+        // A snippet running its actions on this pane can be stopped from
+        // here too: the status bar that also offers it is optional.
+        if let Some((run_id, ..)) = self.snippet_run_progress(pane_id) {
+            items.push(self.menu_item(
+                iced_fonts::lucide::circle_stop(),
+                crate::i18n::t("snippet_run_stop"),
+                Message::Snippet(crate::messages::SnippetMessage::CancelSnippetRun(run_id)),
+                OryxisColors::t().error,
+            ));
+        }
         // Close this pane: only offered on split tabs (on a single
         // pane it would just be "close tab", which the tab menu owns).
         // The message carries the right-clicked pane's id: focus and

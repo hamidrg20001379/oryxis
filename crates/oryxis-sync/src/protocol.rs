@@ -87,7 +87,14 @@ use uuid::Uuid;
 /// one `from_slice`), so nothing syncs through WebDAV / SFTP any more.
 /// The bump makes both the loud version reject; `SNAPSHOT_VERSION`
 /// moves 4 -> 5 in lockstep, reads still accept v2 and up.
-pub const PROTOCOL_VERSION: u32 = 9;
+///
+/// v10 is a FIELD, not a variant, and still a break: `Snippet` gained
+/// `steps` (a snippet as a list of actions). A v9 peer decodes the record
+/// (unknown fields are tolerated) but drops the field, so the first edit
+/// it saves writes the snippet back without its actions, and LWW carries
+/// that copy to every peer. The bump turns silent loss into the loud
+/// version reject; `SNAPSHOT_VERSION` moves 5 -> 6 in lockstep.
+pub const PROTOCOL_VERSION: u32 = 10;
 
 /// Entity types that can be synced.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash, SchemaWrite, SchemaRead)]
@@ -997,7 +1004,7 @@ mod tests {
         );
         assert_eq!(
             (EntityType::ALL.len(), PROTOCOL_VERSION),
-            (11, 9),
+            (11, 10),
             "adding an EntityType variant is a wire break: bump PROTOCOL_VERSION \
              (and SNAPSHOT_VERSION in lockstep) and update this pin"
         );

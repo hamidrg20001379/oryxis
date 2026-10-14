@@ -65,7 +65,7 @@ pub(crate) use dash_select::{CardDrag, DashSelection, SelectionScope};
 pub(crate) use hover::HoverState;
 pub(crate) use panels::PanelsOpen;
 pub(crate) use cloud_discover::CloudDiscoverUi;
-pub(crate) use snippet_form::SnippetForm;
+pub(crate) use snippet_form::{SnippetForm, StepForm, StepKind};
 pub(crate) use keys_ui::KeysUi;
 pub(crate) use sftp_chrome::SftpChrome;
 pub(crate) use prefs::{resolve_download_dir, AppPrefs};
@@ -100,8 +100,12 @@ pub(crate) struct LocalShellSpec {
 /// quiet (see `Oryxis::pending_local_startup`).
 #[derive(Debug, Clone)]
 pub(crate) struct PendingLocalStartup {
-    /// The line to send, newline included at write time.
+    /// The line to send, newline included at write time. Empty when the
+    /// startup snippet has actions (`run`).
     pub command: String,
+    /// A startup snippet with actions: its label and steps, started as a
+    /// run when the pane goes quiet.
+    pub run: Option<(String, Vec<oryxis_core::models::SnippetStep>)>,
     /// How many output batches this pane has produced. A timer armed at
     /// batch N fires only if the count is still N, so a shell that is
     /// still printing pushes the send further out instead of landing in
@@ -135,6 +139,10 @@ pub(crate) struct PendingSnippetVars {
     /// (name, current value) per distinct placeholder, defaults
     /// pre-filled; edited in place by the modal inputs.
     pub vars: Vec<(String, String)>,
+    /// A snippet with actions: its label and its steps (expanded, the
+    /// variables still in), started as a run on confirm. `command`,
+    /// `run` and `install` are then unused.
+    pub steps: Option<(String, Vec<oryxis_core::models::SnippetStep>)>,
 }
 
 /// One persisted entry in the curated local-terminal list. Machine-local

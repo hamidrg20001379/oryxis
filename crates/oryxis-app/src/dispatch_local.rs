@@ -168,16 +168,28 @@ impl Oryxis {
     /// reference wins over the literal command, same precedence as
     /// `dispatch_ssh::session`.
     fn arm_local_startup(&mut self, pane_id: Uuid, conn: &oryxis_core::models::Connection) {
-        let from_snippet = conn.startup_snippet_id.and_then(|id| {
-            self.snippets.iter().find(|s| s.id == id).map(|s| s.command.clone())
-        });
-        let command = from_snippet
+        let snippet = conn
+            .startup_snippet_id
+            .and_then(|id| self.snippets.iter().find(|s| s.id == id))
+            .cloned();
+        // A startup snippet with actions runs them once the shell is quiet.
+        if let Some(snip) = snippet.as_ref().filter(|s| s.has_steps()) {
+            if let Some(run) = self.startup_snippet_run(snip) {
+                self.pending_local_startup.insert(
+                    pane_id,
+                    crate::state::PendingLocalStartup { command: String::new(), run: Some(run), batches: 0 },
+                );
+            }
+            return;
+        }
+        let command = snippet
+            .map(|s| s.command)
             .or_else(|| conn.initial_command.clone())
             .filter(|c| !c.trim().is_empty());
         if let Some(command) = command {
             self.pending_local_startup.insert(
                 pane_id,
-                crate::state::PendingLocalStartup { command, batches: 0 },
+                crate::state::PendingLocalStartup { command, run: None, batches: 0 },
             );
         }
     }
@@ -208,23 +220,27 @@ impl Oryxis {
     /// A startup timer expired. Send the command only if the pane has
     /// produced no output since the timer was armed; otherwise the shell
     /// is still printing and the newer batch has already armed its own.
-    pub(crate) fn fire_local_startup(&mut self, pane_id: Uuid, armed_at: u64) {
+    pub(crate) fn fire_local_startup(&mut self, pane_id: Uuid, armed_at: u64) -> Task<Message> {
         let still_current = self
             .pending_local_startup
             .get(&pane_id)
             .is_some_and(|p| p.batches == armed_at);
         if !still_current {
-            return;
+            return Task::none();
         }
         let Some(pending) = self.pending_local_startup.remove(&pane_id) else {
-            return;
+            return Task::none();
         };
+        if let Some((label, steps)) = pending.run {
+            return self.start_snippet_run_on_pane(pane_id, label, steps);
+        }
         let Some(pane) = self.pane_by_id(pane_id) else {
-            return;
+            return Task::none();
         };
         if let Ok(mut term) = pane.terminal.lock() {
             term.write(format!("{}\n", pending.command).as_bytes());
         }
+        Task::none()
     }
 
     /// Open a new tab running a local host's shell. The counterpart of

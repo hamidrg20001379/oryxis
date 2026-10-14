@@ -36,11 +36,42 @@ pub enum SnippetMessage {
     ConfirmSnippetVars,
     /// Drop the parked snippet without sending.
     CancelSnippetVars,
+    /// A snippet run's timer (`run id`, `generation`): a time wait is
+    /// over, or a wait with a timeout ran out. An older generation is a
+    /// wait that already ended, dropped.
+    SnippetRunTimer(u64, u64),
+    /// A save step's write finished (`run id`, `generation`, the path
+    /// written or the error).
+    SnippetRunFileWritten(u64, u64, Result<String, String>),
+    /// Stop a snippet run (its status line's Cancel).
+    CancelSnippetRun(u64),
     /// Snippet editor: arm the shortcut recorder (next chord binds).
     SnippetHotkeyCaptureStart,
     /// Snippet editor: remove the custom shortcut.
     SnippetHotkeyClear,
-    SnippetCommandAction(text_editor::Action),
+    /// Snippet editor: an edit inside a command row's text.
+    SnippetStepCommandAction(usize, text_editor::Action),
+    /// Snippet editor: add an action at the end.
+    SnippetStepAdd,
+    /// Snippet editor: remove a row.
+    SnippetStepRemove(usize),
+    /// Snippet editor: move a row one place up / down.
+    SnippetStepMoveUp(usize),
+    SnippetStepMoveDown(usize),
+    /// Snippet editor: switch a row's kind.
+    SnippetStepKindPicked(usize, crate::state::StepKind),
+    /// Snippet editor: the app action an action row runs.
+    SnippetStepActionPicked(usize, crate::hotkeys::HotkeyAction),
+    /// Snippet editor: the snippet a "run snippet" row runs.
+    SnippetStepSnippetPicked(usize, uuid::Uuid),
+    SnippetStepPatternChanged(usize, String),
+    SnippetStepTimeoutChanged(usize, String),
+    SnippetStepSecondsChanged(usize, String),
+    SnippetStepFileNameChanged(usize, String),
+    SnippetStepToggleRegex(usize),
+    SnippetStepToggleContinue(usize),
+    SnippetStepSaveModePicked(usize, oryxis_core::models::SaveFileMode),
+    SnippetStepSaveContentPicked(usize, oryxis_core::models::SaveFileContent),
     SaveSnippet,
     /// Open the kebab (⋮) context menu on a snippet card (Edit / Delete).
     ShowSnippetMenu(usize),

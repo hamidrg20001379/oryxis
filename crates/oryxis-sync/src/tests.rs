@@ -133,9 +133,10 @@ mod tests {
         // sk- key algorithms). v8 gates an EntityType variant, which
         // sits in the envelope and so breaks the whole message rather
         // than one record. v9 gates `AuthMethod::SecurityKey` (0.20.0),
-        // a payload variant again. This pin catches any accidental
-        // version bump or rollback.
-        assert_eq!(PROTOCOL_VERSION, 9);
+        // a payload variant again. v10 gates `Snippet.steps`, a field an
+        // older peer would drop on its next save. This pin catches any
+        // accidental version bump or rollback.
+        assert_eq!(PROTOCOL_VERSION, 10);
     }
 
     #[test]
@@ -757,6 +758,46 @@ mod tests {
     /// see the resulting 32 bytes, so a fixed key is faithful here.
     const SNAP_SECRET: [u8; 32] = [7u8; 32];
 
+    /// A snippet's actions travel whole over both transports: the P2P
+    /// records and the snapshot.
+    #[test]
+    fn snippet_steps_ride_records_and_snapshots() {
+        use crate::engine::{apply_records, build_full_snapshot, collect_records, merge_snapshot};
+        use crate::protocol::DeltaRef;
+        use oryxis_core::models::{SaveFileContent, SaveFileMode, SaveFileStep, SnippetStep, SnippetWait};
+
+        let mut snip = Snippet::new("deploy", "");
+        snip.set_actions(vec![
+            SnippetStep::Command { text: "make deploy".into() },
+            SnippetStep::Wait(SnippetWait::CommandEnd { timeout_ms: 0, continue_on_error: false }),
+            SnippetStep::SaveFile(SaveFileStep {
+                name: "{host}.log".into(),
+                mode: SaveFileMode::NewFile,
+                content: SaveFileContent::Buffer,
+            }),
+        ]);
+        let va = test_vault();
+        va.save_snippet(&snip).unwrap();
+        let va = Arc::new(Mutex::new(va));
+
+        let records = collect_records(
+            &va,
+            &[DeltaRef { entity_type: EntityType::Snippet, entity_id: snip.id }],
+            Some(&[0u8; 32]),
+        )
+        .unwrap();
+        let vb = Arc::new(Mutex::new(test_vault()));
+        apply_records(&vb, &records, Some(&[0u8; 32])).unwrap();
+        let got = vb.lock().unwrap().list_snippets().unwrap();
+        assert_eq!(got[0].steps, snip.steps, "P2P records carry the steps");
+
+        let blob = build_full_snapshot(&va, &SNAP_SECRET).unwrap();
+        let vc = Arc::new(Mutex::new(test_vault()));
+        merge_snapshot(&vc, &blob, &SNAP_SECRET).unwrap();
+        let got = vc.lock().unwrap().list_snippets().unwrap();
+        assert_eq!(got[0].steps, snip.steps, "the snapshot carries the steps");
+    }
+
     /// A snapshot built on device A and merged on device B materializes
     /// A's entities on B, with secret fields intact.
     #[test]
@@ -974,10 +1015,10 @@ mod tests {
     }
 
     #[test]
-    fn snapshot_v2_blob_still_merges_and_v6_is_rejected() {
+    fn snapshot_v2_blob_still_merges_and_v7_is_rejected() {
         use crate::engine::{build_full_snapshot, merge_snapshot};
 
-        // The v3, v4 and v5 bumps (protocol v7 / v8 / v9) are schema
+        // The v3, v4, v5 and v6 bumps (protocol v7 / v8 / v9 / v10) are schema
         // gates with unchanged crypto: the reader must still merge a v2
         // blob (upgrade path for existing SFTP snapshots) and reject
         // anything newer than itself. Build a real snapshot, then
@@ -989,18 +1030,18 @@ mod tests {
             v.save_connection(&c, None).unwrap();
         }
         let mut blob = build_full_snapshot(&va, &SNAP_SECRET).unwrap();
-        assert_eq!(&blob[6..8], &5u16.to_le_bytes(), "writer must stamp v5");
+        assert_eq!(&blob[6..8], &6u16.to_le_bytes(), "writer must stamp v6");
 
         blob[6..8].copy_from_slice(&2u16.to_le_bytes());
         let vb = Arc::new(Mutex::new(test_vault()));
         let n = merge_snapshot(&vb, &blob, &SNAP_SECRET)
-            .expect("a v2 snapshot must still merge on a v9 reader");
+            .expect("a v2 snapshot must still merge on a v10 reader");
         assert!(n > 0, "the v2 blob's records must be carried");
 
-        blob[6..8].copy_from_slice(&6u16.to_le_bytes());
+        blob[6..8].copy_from_slice(&7u16.to_le_bytes());
         let vc = Arc::new(Mutex::new(test_vault()));
         let err = merge_snapshot(&vc, &blob, &SNAP_SECRET)
-            .expect_err("a future v6 snapshot must be rejected");
+            .expect_err("a future v7 snapshot must be rejected");
         let msg = err.to_string();
         assert!(
             msg.contains("version") && msg.contains("unsupported"),

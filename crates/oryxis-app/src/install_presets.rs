@@ -75,6 +75,7 @@ pub(crate) fn presets(shell_integration_body: &str) -> Vec<Snippet> {
         group: None,
         hotkey: None,
         install: true,
+        steps: Vec::new(),
         created_at: ts,
         updated_at: ts,
     };

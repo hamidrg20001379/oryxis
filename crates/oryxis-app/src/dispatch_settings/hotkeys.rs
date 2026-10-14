@@ -39,96 +39,6 @@ impl Oryxis {
                     self.persist_setting(&format!("hotkey_{}", action.id()), "");
                 }
             }
-            SettingsMessage::ShortcutSequenceNew => {
-                self.shortcut_sequence_form = crate::hotkeys::ShortcutSequenceForm {
-                    open: true,
-                    editing: None,
-                    ..Default::default()
-                };
-            }
-            SettingsMessage::ShortcutSequenceEdit(index) => {
-                if let Some(sequence) = self.shortcut_sequences.get(index) {
-                    self.shortcut_sequence_form = crate::hotkeys::ShortcutSequenceForm {
-                        open: true,
-                        editing: Some(index),
-                        trigger: sequence.trigger.serialize(),
-                        steps: sequence.steps.clone(),
-                        selected_step: None,
-                        error: None,
-                    };
-                }
-            }
-            SettingsMessage::ShortcutSequenceCancelEdit => {
-                self.shortcut_sequence_form = Default::default();
-            }
-            SettingsMessage::ShortcutSequenceTriggerChanged(value) => {
-                self.shortcut_sequence_form.trigger = value;
-                self.shortcut_sequence_form.error = None;
-            }
-            SettingsMessage::ShortcutSequenceStepPicked(label) => {
-                self.shortcut_sequence_form.selected_step = crate::hotkeys::HotkeyAction::all()
-                    .iter()
-                    .copied()
-                    .find(|action| crate::i18n::t(action.label_key()) == label.as_str());
-            }
-            SettingsMessage::ShortcutSequenceAddStep => {
-                if let Some(action) = self.shortcut_sequence_form.selected_step.take() {
-                    self.shortcut_sequence_form.steps.push(action);
-                }
-            }
-            SettingsMessage::ShortcutSequenceRemoveStep(index) => {
-                if index < self.shortcut_sequence_form.steps.len() {
-                    self.shortcut_sequence_form.steps.remove(index);
-                }
-            }
-            SettingsMessage::ShortcutSequenceMoveStep(index, up) => {
-                let target = if up { index.checked_sub(1) } else { Some(index + 1) };
-                if let Some(target) = target
-                    && target < self.shortcut_sequence_form.steps.len()
-                {
-                    self.shortcut_sequence_form.steps.swap(index, target);
-                }
-            }
-            SettingsMessage::ShortcutSequenceSave => {
-                let trigger_text = self.shortcut_sequence_form.trigger.trim().to_string();
-                let steps = self.shortcut_sequence_form.steps.clone();
-                let editing = self.shortcut_sequence_form.editing;
-                let Some(trigger) = crate::hotkeys::HotkeyBinding::parse(&trigger_text) else {
-                    self.shortcut_sequence_form.error = Some("Enter a valid shortcut such as ctrl+alt+q".into());
-                    return Ok(Task::none());
-                };
-                if steps.is_empty() {
-                    self.shortcut_sequence_form.error = Some("Add at least one step".into());
-                    return Ok(Task::none());
-                }
-                let sequence = crate::hotkeys::ShortcutSequence {
-                    trigger,
-                    steps,
-                };
-                match editing {
-                    Some(index) if index < self.shortcut_sequences.len() => {
-                        self.shortcut_sequences[index] = sequence;
-                    }
-                    _ => self.shortcut_sequences.push(sequence),
-                }
-                self.persist_setting(
-                    "shortcut_sequences",
-                    &crate::hotkeys::ShortcutSequence::serialize_list(&self.shortcut_sequences),
-                );
-                self.shortcut_sequence_form = Default::default();
-            }
-            SettingsMessage::ShortcutSequenceDelete(index) => {
-                if index < self.shortcut_sequences.len() {
-                    self.shortcut_sequences.remove(index);
-                    if self.shortcut_sequence_form.editing == Some(index) {
-                        self.shortcut_sequence_form = Default::default();
-                    }
-                    self.persist_setting(
-                        "shortcut_sequences",
-                        &crate::hotkeys::ShortcutSequence::serialize_list(&self.shortcut_sequences),
-                    );
-                }
-            }
             SettingsMessage::ToggleSecretVisibility(field) => {
                 if !self.revealed_secrets.remove(&field) {
                     self.revealed_secrets.insert(field);
@@ -139,4 +49,3 @@ impl Oryxis {
         Ok(Task::none())
     }
 }
-

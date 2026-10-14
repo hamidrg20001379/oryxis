@@ -111,6 +111,7 @@ impl Oryxis {
                 runner,
                 conn_id,
                 pending_startup: startup,
+                pending_run: None,
                 generation,
             });
         } else {
@@ -157,10 +158,12 @@ impl Oryxis {
             .pane_by_id(pane_id)
             .and_then(|p| p.login_script.as_ref().map(|r| r.generation))
             == Some(generation);
+        // A run the tick finished hands over its startup snippet here.
+        let due = self.start_due_startup_runs();
         if still_running {
-            script_tick(pane_id, generation)
+            Task::batch([script_tick(pane_id, generation), due])
         } else {
-            Task::none()
+            due
         }
     }
 
@@ -282,12 +285,15 @@ impl Oryxis {
             RunnerAction::Finished => {
                 // The run got us to the asset's shell, so NOW the
                 // startup command means what the user configured.
-                let startup = self
-                    .pane_by_id_mut(pane_id)
-                    .and_then(|p| p.login_script.take())
-                    .and_then(|r| r.pending_startup);
+                let run = self.pane_by_id_mut(pane_id).and_then(|p| p.login_script.take());
+                let (startup, startup_run) = run.map_or((None, None), |r| (r.pending_startup, r.pending_run));
                 if let Some(cmd) = startup {
                     self.write_secret_to_pane(pane_id, format!("{cmd}\n").as_bytes());
+                }
+                // Started by the output funnel right after this batch,
+                // where a run's first task has somewhere to go.
+                if let Some((label, steps)) = startup_run {
+                    self.startup_runs_due.push((pane_id, label, steps));
                 }
                 tracing::info!(
                     target = "oryxis::login_script",

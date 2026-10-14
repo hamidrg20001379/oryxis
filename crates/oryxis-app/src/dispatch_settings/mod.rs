@@ -385,16 +385,6 @@ impl Oryxis {
             | SettingsMessage::WheelCaptured(..)
             | SettingsMessage::ResetHotkey(..)
             | SettingsMessage::ResetAllHotkeys
-            | SettingsMessage::ShortcutSequenceNew
-            | SettingsMessage::ShortcutSequenceEdit(..)
-            | SettingsMessage::ShortcutSequenceCancelEdit
-            | SettingsMessage::ShortcutSequenceTriggerChanged(..)
-            | SettingsMessage::ShortcutSequenceStepPicked(..)
-            | SettingsMessage::ShortcutSequenceAddStep
-            | SettingsMessage::ShortcutSequenceRemoveStep(..)
-            | SettingsMessage::ShortcutSequenceMoveStep(..)
-            | SettingsMessage::ShortcutSequenceSave
-            | SettingsMessage::ShortcutSequenceDelete(..)
             | SettingsMessage::ToggleSecretVisibility(..)
             ) => self.handle_settings_hotkeys(m).unwrap_or_else(crate::dispatch::unrouted),
             m @ (
@@ -413,6 +403,9 @@ impl Oryxis {
             | SettingsMessage::PickSessionLogFileDir
             | SettingsMessage::SessionLogFileDirPicked(..)
             | SettingsMessage::ClearSessionLogFileDir
+            | SettingsMessage::PickSnippetOutputDir
+            | SettingsMessage::SnippetOutputDirPicked(..)
+            | SettingsMessage::ClearSnippetOutputDir
             | SettingsMessage::SettingToggleConnectionHistory
             | SettingsMessage::LogsRetentionChanged(..)
             | SettingsMessage::LogsSizeCapChanged(..)
