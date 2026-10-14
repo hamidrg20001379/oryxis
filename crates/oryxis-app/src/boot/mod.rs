@@ -41,19 +41,21 @@ impl Oryxis {
         // with it (and to the log and stderr), since that screen is the
         // only surface left and a report used to come with the fixed
         // label alone (issue #250).
-        let (mut vault, vault_open_error, vault_open_read_only) = match VaultStore::open_default() {
-            Ok(v) => (Some(v), None, false),
-            Err(e) => {
-                tracing::error!("vault open failed: {e}");
-                eprintln!("oryxis: vault open failed: {e}");
-                let read_only = matches!(
-                    &e,
-                    oryxis_vault::VaultError::Open { source, .. }
-                        if matches!(**source, oryxis_vault::VaultError::ReadOnly)
-                );
-                (None, Some(e.to_string()), read_only)
-            }
-        };
+        let (mut vault, vault_open_error, vault_open_read_only, vault_open_corrupt) =
+            match VaultStore::open_default() {
+                Ok(v) => (Some(v), None, false, false),
+                Err(e) => {
+                    tracing::error!("vault open failed: {e}");
+                    eprintln!("oryxis: vault open failed: {e}");
+                    let source = match &e {
+                        oryxis_vault::VaultError::Open { source, .. } => Some(&**source),
+                        _ => None,
+                    };
+                    let read_only = matches!(source, Some(oryxis_vault::VaultError::ReadOnly));
+                    let corrupt = matches!(source, Some(oryxis_vault::VaultError::Corrupt(_)));
+                    (None, Some(e.to_string()), read_only, corrupt)
+                }
+            };
         let mut vault_state = VaultState::Loading;
         let mut vault_has_user_password = false;
         // Biometric-unlock state, hydrated pre-unlock (like theme /
@@ -344,6 +346,7 @@ impl Oryxis {
                     state: vault_state,
                     open_error: vault_open_error,
                     open_read_only: vault_open_read_only,
+                    open_corrupt: vault_open_corrupt,
                     has_user_password: vault_has_user_password,
                     // Pre-check the onboarding form's biometric opt-in
                     // whenever the platform can service it.
@@ -629,6 +632,7 @@ impl Oryxis {
                 remote_desktop_forwards: std::collections::HashMap::new(),
                 link_forwards: std::collections::HashMap::new(),
                 link_confirm: None,
+                save_output: None,
                 remote_desktop_seq: 0,
                 remote_desktop_enabled: false,
                 port_forward_starting: std::collections::HashSet::new(),
@@ -1069,4 +1073,3 @@ impl Oryxis {
         tasks
     }
 }
-

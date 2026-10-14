@@ -121,7 +121,7 @@ impl Oryxis {
                 .align_y(iced::Alignment::Center)
                 .boxed(),
             );
-            content = content.push(Space::new().height(6));
+            content = content.push(Space::new().height(6).boxed());
         }
 
         if self.shortcut_sequence_form.open {
@@ -184,9 +184,9 @@ impl Oryxis {
                 .on_input(|value| Message::Settings(SettingsMessage::ShortcutSequenceTriggerChanged(value)))
                 .padding(8)
                 .style(crate::widgets::rounded_input_style),
-            Space::new().height(8),
+            Space::new().height(8).boxed(),
             steps,
-            Space::new().height(8),
+            Space::new().height(8).boxed(),
             dir_row(vec![
                 pick_list(selected, options, |value: &String| value.clone())
                     .on_select(|value| Message::Settings(SettingsMessage::ShortcutSequenceStepPicked(value)))
@@ -197,11 +197,13 @@ impl Oryxis {
                     Message::Settings(SettingsMessage::ShortcutSequenceAddStep),
                     OryxisColors::t().bg_hover,
                 ),
-            ]).spacing(8),
-            Space::new().height(8),
+            ])
+            .spacing(8)
+            .boxed(),
+            Space::new().height(8).boxed(),
         ];
         if let Some(error) = &form.error {
-            editor = editor.push(text(error.clone()).size(11).color(OryxisColors::t().error));
+            editor = editor.push(text(error.clone()).size(11).color(OryxisColors::t().error).boxed());
         }
         editor = editor.push(
             dir_row(vec![
@@ -215,7 +217,9 @@ impl Oryxis {
                     Message::Settings(SettingsMessage::ShortcutSequenceCancelEdit),
                     OryxisColors::t().bg_hover,
                 ),
-            ]).spacing(8),
+            ])
+            .spacing(8)
+            .boxed(),
         );
         editor.boxed()
     }

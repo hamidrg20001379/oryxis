@@ -36,6 +36,23 @@ pub enum SettingsMessage {
     ShortcutSequenceMoveStep(usize, bool),
     ShortcutSequenceSave,
     ShortcutSequenceDelete(usize),
+    /// Settings → Shortcuts: the preset selector picked a set (`None` =
+    /// Oryxis's own).
+    HotkeyPresetPicked(Option<crate::hotkeys::ShortcutPreset>),
+    /// Settings → Shortcuts: write the current layout to a file.
+    ExportHotkeys,
+    /// The export finished: the path written, or the error. A dismissed
+    /// save dialog reports nothing.
+    HotkeysExported(Result<String, String>),
+    /// Settings → Shortcuts: pick a shortcuts file to read.
+    ImportHotkeys,
+    /// The picked file: its name and its text, or the read error.
+    HotkeysFileRead(String, Result<String, String>),
+    /// Make this layout the bindings (a preset or an imported file, after
+    /// its confirm). The name is what the toast reports; the mode says
+    /// whether it replaces whole lists (a file) or keyboard chords only
+    /// (a preset).
+    ApplyHotkeyLayout(Vec<crate::hotkeys::layout::LayoutEntry>, String, crate::hotkeys::layout::Mode),
     /// Settings > Terminal: toggle the paste content heuristics.
     TogglePasteGuard,
     /// Settings > Terminal: enable/disable command-history capture.
@@ -249,6 +266,11 @@ pub enum SettingsMessage {
     /// lands (stacked / beside / zoomed). Carries the picked label,
     /// like every other pick_list row.
     SftpConsoleLayoutChanged(String),
+    /// Settings > SFTP: what a double click on a folder / a file does
+    /// in the dual-pane browser. Carry the picked label, like every
+    /// other pick_list row.
+    SftpDirDoubleClickChanged(String),
+    SftpFileDoubleClickChanged(String),
     /// Settings > SFTP: the single external editor used by the remote
     /// "Open with default text editor" action (issue #84).
     SettingSftpDefaultEditorChanged(String),
@@ -631,4 +653,3 @@ pub enum SettingsMessage {
     /// Which snippet the "send a snippet" action runs, by label.
     HighlightRuleSnippetChanged(String),
 }
-
