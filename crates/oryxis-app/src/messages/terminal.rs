@@ -72,6 +72,12 @@ pub enum TerminalMessage {
     /// its tab's broadcast (the per-pane observer opt-out).
     TogglePaneBroadcastOptOut(Uuid),
     KeyboardEvent(keyboard::Event),
+    /// A keyboard event a widget already CAPTURED: a focused text input
+    /// typed it (an edit, a caret move, its own Ctrl+A, an `on_submit`
+    /// Enter). Handled exactly like `KeyboardEvent` except that it never
+    /// reaches the SFTP list router, whose arrows / Backspace / type-ahead
+    /// would otherwise act on the list behind the field being typed in.
+    KeyboardEventCaptured(keyboard::Event),
     /// Text committed by the OS IME (e.g. a composed CJK character).
     /// Arrives separately from `KeyboardEvent`; forwarded to the active
     /// PTY in `dispatch_terminal` behind the same focus guards.
@@ -165,7 +171,7 @@ pub enum TerminalMessage {
     /// tab rides along because the read resolves later and the user may have
     /// switched tabs in between.
     TerminalPasteResolved(Uuid, Option<super::Redacted>),
-    /// Clipboard text for a user sequence's paste-and-execute step.
+    /// Clipboard text for a shortcut sequence's paste-and-execute step.
     TerminalPasteAndExecuteResolved(Uuid, Option<super::Redacted>),
     /// PRIMARY selection handed back by the runtime for a middle-click /
     /// Shift+Insert paste, with the tab it was requested FROM and the text
@@ -198,6 +204,11 @@ pub enum TerminalMessage {
     /// where `selection` is the live selection's text captured by the
     /// widget (`None` when empty), so the menu can offer "Copy".
     ShowTerminalContextMenu(Uuid, f32, f32, Option<String>),
+    /// Open a pane's context menu from the KEYBOARD (the Menu key, or the
+    /// palette row): anchored at the text cursor instead of a click point,
+    /// with the pane's live selection read from the emulator, since no
+    /// widget event carried it. Opens whatever the right-click scheme.
+    ShowTerminalContextMenuAtCursor(Uuid),
     /// Copy the captured selection text to the clipboard (context-menu
     /// "Copy").
     TerminalCopySelection(String),
@@ -219,11 +230,24 @@ pub enum TerminalMessage {
     TerminalDropProgress(Uuid, crate::state::DropProgress),
     /// User asked to cancel the pane's in-flight OS-drop upload.
     TerminalDropCancel(Uuid),
-    /// Copy the most recently completed shell command and its output.
-    TerminalCopyLastCommand(Uuid),
+    /// Take the whole buffer (scrollback + screen) of a pane and ask where
+    /// it goes (context-menu "Save Output As..."). `pane_id`. The text is
+    /// read here and parked in `Oryxis::save_output`, never carried by a
+    /// message.
+    TerminalSaveOutput(Uuid),
+    /// The answer to the save-output dialog: where the parked text goes.
+    TerminalSaveOutputTo(crate::dispatch_terminal::SaveOutputDestination),
+    /// The save-output dialog was dismissed: the parked text is dropped.
+    TerminalSaveOutputCancel,
+    /// The file write finished: the path written, or the error. A save
+    /// dialog the user dismissed reports nothing.
+    TerminalSaveOutputWritten(Result<String, String>),
     /// Copy only the pane's displayed viewport, scroll position included and
     /// off-screen history excluded (context-menu "Copy Screen"). `pane_id`.
     TerminalCopyScreen(Uuid),
+    /// Copy the last command the pane's shell ran, with its output, as
+    /// the shell marked them (OSC 133). `pane_id`.
+    TerminalCopyLastCommand(Uuid),
     /// Drop a pane's scrollback history (context-menu "Clear
     /// Scrollback"). `pane_id`.
     TerminalClearScrollback(Uuid),
@@ -261,4 +285,3 @@ pub enum TerminalMessage {
     /// bookkeeping entry.
     TerminalLinkTunnelClosed(Uuid, u16),
 }
-

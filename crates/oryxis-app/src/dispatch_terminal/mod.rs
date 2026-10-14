@@ -20,16 +20,19 @@
 
 #![allow(clippy::result_large_err)]
 
+mod context_menu;
 mod drop;
 mod keyboard;
 mod links;
 mod output;
 mod pane_end;
+mod save_output;
 mod session_file;
 mod triggers;
 
 pub(crate) use links::LinkConfirmCard;
 pub(crate) use output::PendingSessionRow;
+pub(crate) use save_output::{SaveOutputCard, SaveOutputDestination};
 pub(crate) use session_file::{MirrorJob, MirrorWriter};
 pub(crate) use triggers::TriggerConfirmCard;
 
@@ -208,6 +211,12 @@ impl Oryxis {
                 return self
                     .handle_terminal_keyboard(message)
                     .unwrap_or_else(crate::dispatch::unrouted);
+            }
+            // `dispatch_message` unwraps this before it gets here; one that
+            // arrives anyway is handled like any key, which is all the
+            // marker ever changes outside the SFTP list router.
+            TerminalMessage::KeyboardEventCaptured(ke) => {
+                return self.handle_terminal(TerminalMessage::KeyboardEvent(ke));
             }
             // -- Split panes --
             TerminalMessage::FocusPane(pane) => {
@@ -854,9 +863,29 @@ impl Oryxis {
                     TerminalMessage::ShowTerminalContextMenu(pane_id, at.x, at.y, None),
                 ));
             }
+            TerminalMessage::ShowTerminalContextMenuAtCursor(pane_id) => {
+                // A pane not drawn yet has no rect to anchor to; the mouse
+                // is the right-click's own anchor, and better than nothing.
+                let (x, y) = self.terminal_cursor_menu_anchor(pane_id).unwrap_or_else(|| {
+                    let at = self.cur_mouse();
+                    (at.x, at.y)
+                });
+                // The live selection, which the widget hands a right-click
+                // and nothing hands a key: read off the emulator, under the
+                // same rule as the widget (an empty range offers no Copy).
+                let selection = self.pane_by_id(pane_id).and_then(|pane| {
+                    let state = pane.terminal.lock().ok()?;
+                    let range = state.selection_range()?;
+                    let text = state.get_selection_text(&range);
+                    (!text.is_empty()).then_some(text)
+                });
+                return self.update(Message::Terminal(TerminalMessage::ShowTerminalContextMenu(
+                    pane_id, x, y, selection,
+                )));
+            }
             TerminalMessage::ShowTerminalContextMenu(pane_id, x, y, selection) => {
                 // Focus the right-clicked pane first (standard context-menu
-                // behavior), so all rows act on the same pane: Copy Screen /
+                // behavior), so all rows act on the same pane: Save Output /
                 // Clear Scrollback are pane-targeted by id, and Paste
                 // routes through the focused pane.
                 if let Some(tab_idx) = self.pane_tab_index(pane_id) {
@@ -967,14 +996,17 @@ impl Oryxis {
                     up.abort.store(true, std::sync::atomic::Ordering::Relaxed);
                 }
             }
-            TerminalMessage::TerminalCopyLastCommand(pane_id) => {
-                self.overlay = None;
-                if let Some(pane) = self.pane_by_id(pane_id)
-                    && let Some(text) = pane.last_command_output.clone()
-                    && !text.is_empty()
-                {
-                    return self.update(Message::CopyToClipboard(text));
-                }
+            TerminalMessage::TerminalSaveOutput(pane_id) => {
+                return self.open_save_output(pane_id);
+            }
+            TerminalMessage::TerminalSaveOutputTo(to) => {
+                return self.resolve_save_output(to);
+            }
+            TerminalMessage::TerminalSaveOutputCancel => {
+                self.save_output = None;
+            }
+            TerminalMessage::TerminalSaveOutputWritten(outcome) => {
+                return self.save_output_written(outcome);
             }
             TerminalMessage::TerminalCopyScreen(pane_id) => {
                 self.overlay = None;
@@ -990,6 +1022,28 @@ impl Oryxis {
                 if let Some(text) = text {
                     return self.update(Message::CopyToClipboard(text));
                 }
+            }
+            TerminalMessage::TerminalCopyLastCommand(pane_id) => {
+                self.overlay = None;
+                use oryxis_terminal::LastCommandUnavailable as Why;
+                // Read under the lock, copied after it: the clipboard write
+                // resolves through the runtime and toasts on its own.
+                let read = self.pane_by_id(pane_id).map(|pane| match pane.terminal.lock() {
+                    Ok(state) => state.last_command(),
+                    Err(_) => Err(Why::NoneSeen),
+                });
+                return match read {
+                    Some(Ok(last)) => self.update(Message::CopyToClipboard(last.to_text())),
+                    Some(Err(why)) => self.show_toast(
+                        crate::i18n::t(match why {
+                            Why::NoneSeen => "terminal_last_command_none",
+                            Why::AlternateScreen => "terminal_last_command_alt_screen",
+                            Why::Gone => "terminal_last_command_gone",
+                        })
+                        .to_string(),
+                    ),
+                    None => Task::none(),
+                };
             }
             TerminalMessage::TerminalClearScrollback(pane_id) => {
                 self.overlay = None;
@@ -1201,4 +1255,3 @@ impl Oryxis {
             .find(|p| p.id == pane_id)
     }
 }
-

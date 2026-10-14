@@ -941,8 +941,9 @@ the app's own actions sit on `Ctrl+Shift`.
 | `Ctrl+,` | Settings |
 | `Ctrl+= / Ctrl+- / Ctrl+0` | Zoom the terminal font for the session (also `Ctrl+Wheel` and the touchpad pinch, one chord of its own with a switch beside the font size) |
 
-Settings > Shortcuts also starts from another terminal's keys (Tabby on
-every platform, iTerm2 on macOS), taken from each app's shipped defaults:
+Settings > Shortcuts also starts from another terminal's keys (Windows
+Terminal on Windows, Tabby on every platform, iTerm2 on macOS), taken
+from each app's shipped defaults:
 only the actions that terminal has a key for change, mouse and wheel
 gestures stay, and the confirm names any action left without a shortcut.
 Export… and Import… carry your shortcuts to another machine as a small

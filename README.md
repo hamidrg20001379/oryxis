@@ -279,6 +279,9 @@ tracks it interactively.
   actual OS, with dry-run previews on every state change, an audit
   journal, and secrets structurally excluded from model context.
   Local-first, bring-your-own-key, no hosted backend.
+- **Tab switching order:** Ctrl+Tab switches tabs by recent use today;
+  a setting will also offer the strip's own order, the way Windows
+  Terminal does by default, for people coming from it.
 
 **Exploring**
 

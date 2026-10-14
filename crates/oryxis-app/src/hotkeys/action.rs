@@ -149,12 +149,17 @@ pub enum HotkeyAction {
     /// Global rather than `terminal_only`: the moment it is wanted most
     /// is right after closing the last tab, which lands on Home.
     ReopenClosedTab,
-    // Menu verbs: some ship with factory chords, while the rest remain
-    // unbound and user-configurable. The Shortcuts editor offers every one
-    // as a row and the command palette lists them like any other action.
-    // The remaining menu verbs ship unbound because no terminal or browser
-    // agrees on a chord for them. `ships_unbound` names that set; a test pins
-    // it against the factory table.
+    // Menu verbs that ship UNBOUND: no factory chord, absent from
+    // `default_bindings()` (absence IS the representation, never an
+    // empty list there). The Shortcuts editor offers each as a row
+    // whose only chip reads "(unbound)", so the chord is the user's
+    // choice, and the command palette lists them like any other action.
+    // Nothing ships bound because no terminal or browser agrees on a
+    // chord for any of these (Chrome, Firefox, VS Code and kitty leave
+    // them to the menu), and a two-key chord on the Ctrl+Shift row fires
+    // by accident next to N / W (Konsole dropped its Ctrl+Shift+L
+    // detach-tab chord for exactly that in 2020). `ships_unbound` names
+    // the set; a test pins it against the factory table.
     /// Move the focused tab into a window of its own: the tab menu's
     /// "Move to New Window". Global, not `terminal_only`: an SFTP tab
     /// moves too, and the terminal gate would never fire there.
@@ -172,14 +177,29 @@ pub enum HotkeyAction {
     CloseOtherTabs,
     /// Close every tab of this window, through its confirm.
     CloseAllTabs,
-    /// Copy the most recently completed shell command and its output.
-    TerminalCopyLastCommand,
+    /// Save the focused pane's whole buffer (scrollback + screen) to the
+    /// clipboard or a file, through the "Save Output As..." dialog.
+    /// App-dispatched, unlike `TerminalCopy`: the handler reads the
+    /// pane's buffer under its lock, so the palette can run it.
+    TerminalSaveOutput,
     /// Copy the focused pane's displayed screen only.
     TerminalCopyScreen,
     /// Paste the clipboard into the focused pane and press Enter.
     TerminalPasteAndExecute,
+    /// Copy the last command the focused pane's shell ran, with its
+    /// output, as the shell marked them (OSC 133). Unbound out of the box
+    /// like the other pane copy verbs.
+    TerminalCopyLastCommand,
     /// Drop the focused pane's scrollback.
     TerminalClearScrollback,
+    /// Open the focused pane's context menu, anchored at the text
+    /// cursor: the keyboard's door to the menu a right-click opens. Ships
+    /// on the Menu key (the system's own context-menu key, not an
+    /// invented chord), and opens the menu whatever the right-click
+    /// scheme is, since the key is the only door a keyboard has to it.
+    /// Shift+F10, the other system gesture, stays with the PTY: it is
+    /// `ESC[21;2~` there, and programs read it.
+    TerminalContextMenu,
     /// Lock the vault, through its confirm (the burger menu's row). The
     /// palette used to carry this as a hand-written extra; it is an
     /// ordinary action now so a chord can reach it.
@@ -251,10 +271,12 @@ impl HotkeyAction {
             TerminalSelectAll,
             ScrollbackPageUp,
             ScrollbackPageDown,
-            TerminalCopyLastCommand,
+            TerminalSaveOutput,
             TerminalCopyScreen,
             TerminalPasteAndExecute,
+            TerminalCopyLastCommand,
             TerminalClearScrollback,
+            TerminalContextMenu,
             VaultSectionSlot,
             VaultSectionPrev,
             VaultSectionNext,
@@ -312,6 +334,7 @@ impl HotkeyAction {
             TerminalCopy => "terminal_copy",
             TerminalPaste => "terminal_paste",
             TerminalPasteSelection => "terminal_paste_selection",
+            TerminalPasteAndExecute => "terminal_paste_execute",
             TerminalSelectAll => "terminal_select_all",
             ScrollbackPageUp => "scrollback_page_up",
             ScrollbackPageDown => "scrollback_page_down",
@@ -323,10 +346,11 @@ impl HotkeyAction {
             CopyTabAddress => "copy_tab_address",
             CloseOtherTabs => "close_other_tabs",
             CloseAllTabs => "close_all_tabs",
-            TerminalCopyLastCommand => "terminal_copy_last_command",
+            TerminalSaveOutput => "terminal_save_output",
             TerminalCopyScreen => "terminal_copy_screen",
-            TerminalPasteAndExecute => "terminal_paste_execute",
+            TerminalCopyLastCommand => "terminal_copy_last_command",
             TerminalClearScrollback => "terminal_clear_scrollback",
+            TerminalContextMenu => "terminal_context_menu",
             LockVault => "lock_vault",
             ConnectInNewWindow => "connect_in_new_window",
         }
@@ -393,6 +417,7 @@ impl HotkeyAction {
             TerminalCopy => "terminal_copy",
             TerminalPaste => "terminal_paste",
             TerminalPasteSelection => "hotkey_terminal_paste_selection",
+            TerminalPasteAndExecute => "terminal_paste_execute",
             TerminalSelectAll => "select_all",
             ScrollbackPageUp => "hotkey_scrollback_page_up",
             ScrollbackPageDown => "hotkey_scrollback_page_down",
@@ -411,9 +436,11 @@ impl HotkeyAction {
             CopyTabAddress => "copy_host_address",
             CloseOtherTabs => "close_other_tabs",
             CloseAllTabs => "close_all_tabs",
-            TerminalCopyLastCommand => "terminal_copy_last_command",
+            TerminalSaveOutput => "terminal_save_output",
             TerminalCopyScreen => "terminal_copy_screen",
+            TerminalCopyLastCommand => "terminal_copy_last_command",
             TerminalClearScrollback => "terminal_clear_scrollback",
+            TerminalContextMenu => "hotkey_terminal_context_menu",
             LockVault => "lock_vault",
             // The card menu's own row label.
             ConnectInNewWindow => "connect_new_window",
@@ -437,7 +464,10 @@ impl HotkeyAction {
                 | CopyTabAddress
                 | CloseOtherTabs
                 | CloseAllTabs
+                | TerminalSaveOutput
+                | TerminalCopyScreen
                 | TerminalPasteAndExecute
+                | TerminalCopyLastCommand
                 | TerminalClearScrollback
                 | LockVault
         )
@@ -473,10 +503,12 @@ impl HotkeyAction {
                 | ScrollbackPageDown
                 | DuplicateInNewWindow
                 | CopyTabAddress
-                | TerminalCopyLastCommand
+                | TerminalSaveOutput
                 | TerminalCopyScreen
                 | TerminalPasteAndExecute
+                | TerminalCopyLastCommand
                 | TerminalClearScrollback
+                | TerminalContextMenu
         )
     }
 
@@ -732,4 +764,3 @@ mod tests {
         );
     }
 }
-

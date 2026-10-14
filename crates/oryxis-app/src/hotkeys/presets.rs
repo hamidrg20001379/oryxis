@@ -20,6 +20,8 @@ use super::{HotkeyAction, HotkeyBindings};
 /// A keymap the Shortcuts editor offers as a starting point.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum ShortcutPreset {
+    /// Windows Terminal (Windows only).
+    WindowsTerminal,
     /// iTerm2 (macOS only).
     ITerm2,
     /// Tabby, in the platform's own variant.
@@ -31,6 +33,8 @@ impl ShortcutPreset {
     pub fn available() -> &'static [ShortcutPreset] {
         if cfg!(target_os = "macos") {
             &[ShortcutPreset::ITerm2, ShortcutPreset::Tabby]
+        } else if cfg!(target_os = "windows") {
+            &[ShortcutPreset::WindowsTerminal, ShortcutPreset::Tabby]
         } else {
             &[ShortcutPreset::Tabby]
         }
@@ -39,6 +43,7 @@ impl ShortcutPreset {
     /// The app's own name (a proper noun, not translated).
     pub fn name(self) -> String {
         match self {
+            ShortcutPreset::WindowsTerminal => "Windows Terminal",
             ShortcutPreset::ITerm2 => "iTerm2",
             ShortcutPreset::Tabby => "Tabby",
         }
@@ -48,15 +53,21 @@ impl ShortcutPreset {
     /// The preset's rows, in Oryxis's chord spelling.
     pub fn layout(self) -> Vec<LayoutEntry> {
         let rows: &[(HotkeyAction, &str)] = match self {
+            ShortcutPreset::WindowsTerminal => WINDOWS_TERMINAL,
             ShortcutPreset::ITerm2 => ITERM2,
             ShortcutPreset::Tabby if cfg!(target_os = "macos") => TABBY_MACOS,
             ShortcutPreset::Tabby if cfg!(target_os = "windows") => TABBY_WINDOWS,
             ShortcutPreset::Tabby => TABBY_LINUX,
         };
-        rows.iter()
-            .filter_map(|(action, chords)| HotkeyBindings::parse(chords).map(|b| (*action, b)))
-            .collect()
+        rows_layout(rows)
     }
+}
+
+/// A table's rows as a layout.
+fn rows_layout(rows: &[(HotkeyAction, &str)]) -> Vec<LayoutEntry> {
+    rows.iter()
+        .filter_map(|(action, chords)| HotkeyBindings::parse(chords).map(|b| (*action, b)))
+        .collect()
 }
 
 impl std::fmt::Display for ShortcutPreset {
@@ -66,6 +77,41 @@ impl std::fmt::Display for ShortcutPreset {
 }
 
 use HotkeyAction::*;
+
+/// Windows Terminal, `src/cascadia/TerminalSettingsModel/defaults.json` at
+/// 1282d56a33bb15206fcb3a09d3bea0a33036f2cd (each `keys` line resolved
+/// through its `command` line; `plus` / `minus` are the `=` / `-` key).
+/// https://github.com/microsoft/terminal/blob/1282d56a33bb15206fcb3a09d3bea0a33036f2cd/src/cascadia/TerminalSettingsModel/defaults.json
+///
+/// Left out on purpose: its tab cycling is Ctrl+Tab, which Oryxis already
+/// answers on its own (by recent use, where Windows Terminal defaults to
+/// the strip order); and its tab slots are Ctrl+Alt+digit, which on
+/// Windows IS AltGr+digit, the key that types `{ [ ] }` on a German
+/// layout, and a binding is matched before the terminal sees the key.
+const WINDOWS_TERMINAL: &[(HotkeyAction, &str)] = &[
+    (ShowNewTabPicker, "ctrl+shift+t"),       // L740 Terminal.OpenNewTab
+    (NewWindow, "ctrl+shift+n"),              // L741 Terminal.OpenNewWindow
+    (DuplicateTab, "ctrl+shift+d"),           // L751 Terminal.DuplicateTab
+    (CloseActiveTab, "ctrl+shift+w"),         // L765 Terminal.ClosePane
+    (ShowCommandPalette, "ctrl+shift+p"),     // L732 Terminal.ToggleCommandPalette
+    (OpenSettings, "ctrl+,"),                 // L728 Terminal.OpenSettingsUI
+    (FocusViewSearch, "ctrl+shift+f"),        // L731 Terminal.FindText
+    (ToggleFullscreen, "f11 alt+enter"),      // L725-726 Terminal.ToggleFullscreen
+    (SplitPaneVertical, "shift+alt+= shift+alt++"), // L767 alt+shift+plus, Terminal.DuplicatePaneRight
+    (SplitPaneHorizontal, "shift+alt+-"),     // L766 alt+shift+-, Terminal.DuplicatePaneDown
+    (FocusPaneLeft, "alt+left"),              // L773 Terminal.MoveFocusLeft
+    (FocusPaneRight, "alt+right"),            // L774 Terminal.MoveFocusRight
+    (FocusPaneUp, "alt+up"),                  // L775 Terminal.MoveFocusUp
+    (FocusPaneDown, "alt+down"),              // L772 Terminal.MoveFocusDown
+    (TerminalCopy, "ctrl+shift+c ctrl+ins"),  // L779-780 Terminal.CopyToClipboard
+    (TerminalPaste, "ctrl+shift+v shift+ins"), // L782-783 Terminal.PasteFromClipboard
+    (TerminalSelectAll, "ctrl+shift+a"),      // L784 Terminal.SelectAll
+    (ScrollbackPageUp, "ctrl+shift+pgup"),    // L792 Terminal.ScrollUpPage
+    (ScrollbackPageDown, "ctrl+shift+pgdn"),  // L790 Terminal.ScrollDownPage
+    (FontZoomIn, "ctrl+="),                   // L798 ctrl+plus, Terminal.IncreaseFontSize
+    (FontZoomOut, "ctrl+-"),                  // L799 ctrl+minus, Terminal.DecreaseFontSize
+    (FontZoomReset, "ctrl+0"),                // L802 Terminal.ResetFontSize
+];
 
 /// iTerm2, `master` 069b6e0dd8f3f0d82fc08ea5d294d28f7c5b986e:
 /// menu equivalents from `sources/MainMenu/Base.lproj/MainMenu.xib`
@@ -222,6 +268,7 @@ mod tests {
 
     #[test]
     fn every_table_is_well_formed() {
+        assert_table(WINDOWS_TERMINAL);
         assert_table(ITERM2);
         assert_table(TABBY_WINDOWS);
         assert_table(TABBY_LINUX);
@@ -237,6 +284,9 @@ mod tests {
             let (_, applied) = apply_layout(&preset.layout(), &[], Mode::KeyboardOnly);
             assert!(applied.skipped.is_empty());
             let expected: &[HotkeyAction] = match preset {
+                // Alt+arrows becomes pane focus, and tab cycling is the
+                // Ctrl+Tab Oryxis answers outside the table.
+                ShortcutPreset::WindowsTerminal => &[CycleTabs, ToggleTabFiles],
                 ShortcutPreset::ITerm2 => &[NewHost, NewKey, DuplicateTab],
                 ShortcutPreset::Tabby if cfg!(target_os = "macos") => &[DuplicateTab, NewHost],
                 ShortcutPreset::Tabby => {
@@ -249,6 +299,25 @@ mod tests {
             want.sort_by_key(|a| a.id());
             assert_eq!(got, want, "{preset:?}");
         }
+    }
+
+    /// The Windows Terminal table is offered on Windows only, but its
+    /// effect is measured wherever the tests run off a Mac (the factory
+    /// table is the same on Windows and Linux).
+    #[cfg(not(target_os = "macos"))]
+    #[test]
+    fn windows_terminal_unbinds_tab_cycling_and_the_files_toggle() {
+        let (map, applied) = apply_layout(&rows_layout(WINDOWS_TERMINAL), &[], Mode::KeyboardOnly);
+        assert!(applied.skipped.is_empty());
+        let mut got = applied.unbound.clone();
+        got.sort_by_key(|a| a.id());
+        assert_eq!(got, vec![CycleTabs, ToggleTabFiles]);
+        // Shift+Insert moved to the clipboard paste; the middle click
+        // stays on the selection paste.
+        let shift_ins = super::super::HotkeyBinding::parse("shift+ins").unwrap();
+        assert!(map[&TerminalPaste].contains(&shift_ins));
+        assert!(!map[&TerminalPasteSelection].contains(&shift_ins));
+        assert!(map[&TerminalPasteSelection].iter().any(|c| c.is_mouse()));
     }
 
     #[test]

@@ -126,7 +126,7 @@ impl Oryxis {
                     return Some(super::toast_clear_after_secs(2));
                 }
                 // Conflicts: the static table and other snippets.
-                let in_table = self.hotkey_bindings.values().any(|b| b.contains(&binding));
+                let in_table = self.hotkey_bindings.values().any(|b| b.shares_keypress(&binding));
                 let in_snippets = self.snippets.iter().any(|sn| {
                     self.snippet_form.editing_id != Some(sn.id)
                         && sn.hotkey.as_deref()
@@ -220,9 +220,8 @@ impl Oryxis {
                     _ => false,
                 }
         };
-        // User-authored sequences run before the built-in table. They are
-        // terminal actions by definition and therefore stay out of modal
-        // input and shell control chords.
+        // User-authored sequences run before snippets. They are terminal actions
+        // by definition and stay out of modal input and shell control chords.
         if !modal_owns_keys && pty_owns_keys {
             let sequence_steps = self
                 .shortcut_sequences
@@ -240,6 +239,7 @@ impl Oryxis {
                 ));
             }
         }
+
         // Resolve the hit under an immutable borrow of the binding
         // table, then dispatch once the borrow is gone:
         // `dispatch_hotkey_action` takes `&mut self`. The old code
@@ -840,20 +840,33 @@ impl Oryxis {
             CloseAllTabs => Task::done(Message::Tabs(TabsMessage::CloseAllTabs)),
             // Pane-scoped, like `MovePaneToNewTab`: the message names a
             // PANE, resolved to the focused one here.
-            TerminalCopyLastCommand | TerminalCopyScreen | TerminalClearScrollback => {
+            TerminalSaveOutput | TerminalCopyScreen | TerminalCopyLastCommand | TerminalClearScrollback => {
                 let pane_id = self
                     .cur_active_tab()
                     .and_then(|i| self.tabs.get(i))
                     .map(|t| t.active().id);
                 match pane_id {
                     Some(pane_id) => Task::done(Message::Terminal(match action {
-                        TerminalCopyLastCommand => TerminalMessage::TerminalCopyLastCommand(pane_id),
+                        TerminalSaveOutput => TerminalMessage::TerminalSaveOutput(pane_id),
                         TerminalCopyScreen => TerminalMessage::TerminalCopyScreen(pane_id),
+                        TerminalCopyLastCommand => TerminalMessage::TerminalCopyLastCommand(pane_id),
                         _ => TerminalMessage::TerminalClearScrollback(pane_id),
                     })),
                     None => Task::none(),
                 }
             }
+            // The focused pane of the tab in front, like the copy verbs
+            // above; the handler anchors the menu at its text cursor.
+            TerminalContextMenu => match self
+                .cur_active_tab()
+                .and_then(|i| self.tabs.get(i))
+                .map(|t| t.active().id)
+            {
+                Some(pane_id) => {
+                    Task::done(Message::Terminal(TerminalMessage::ShowTerminalContextMenuAtCursor(pane_id)))
+                }
+                None => Task::none(),
+            },
             // Through the confirm, never the teardown: the handler also
             // declines a vault with no master password, like the burger
             // menu's row.
@@ -917,4 +930,3 @@ impl Oryxis {
         }
     }
 }
-
