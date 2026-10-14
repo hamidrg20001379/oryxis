@@ -37,7 +37,6 @@ mod advanced;
 mod search;
 mod locale;
 mod hotkeys;
-mod hotkey_layouts;
 mod session_logs;
 mod timers;
 mod toggles;
@@ -281,8 +280,6 @@ impl Oryxis {
             | SettingsMessage::ToggleSftpAskDownloadDir
             | SettingsMessage::ToggleSftpUploadTempName
             | SettingsMessage::SftpConsoleLayoutChanged(..)
-            | SettingsMessage::SftpDirDoubleClickChanged(..)
-            | SettingsMessage::SftpFileDoubleClickChanged(..)
             | SettingsMessage::SettingSftpDefaultEditorChanged(..)
             | SettingsMessage::SettingSftpDefaultEditorBrowse
             | SettingsMessage::SettingSftpDefaultEditorPicked(..)
@@ -385,16 +382,18 @@ impl Oryxis {
             | SettingsMessage::WheelCaptured(..)
             | SettingsMessage::ResetHotkey(..)
             | SettingsMessage::ResetAllHotkeys
+            | SettingsMessage::ShortcutSequenceNew
+            | SettingsMessage::ShortcutSequenceEdit(..)
+            | SettingsMessage::ShortcutSequenceCancelEdit
+            | SettingsMessage::ShortcutSequenceTriggerChanged(..)
+            | SettingsMessage::ShortcutSequenceStepPicked(..)
+            | SettingsMessage::ShortcutSequenceAddStep
+            | SettingsMessage::ShortcutSequenceRemoveStep(..)
+            | SettingsMessage::ShortcutSequenceMoveStep(..)
+            | SettingsMessage::ShortcutSequenceSave
+            | SettingsMessage::ShortcutSequenceDelete(..)
             | SettingsMessage::ToggleSecretVisibility(..)
             ) => self.handle_settings_hotkeys(m).unwrap_or_else(crate::dispatch::unrouted),
-            m @ (
-            SettingsMessage::HotkeyPresetPicked(..)
-            | SettingsMessage::ExportHotkeys
-            | SettingsMessage::HotkeysExported(..)
-            | SettingsMessage::ImportHotkeys
-            | SettingsMessage::HotkeysFileRead(..)
-            | SettingsMessage::ApplyHotkeyLayout(..)
-            ) => self.handle_settings_hotkey_layouts(m).unwrap_or_else(crate::dispatch::unrouted),
             m @ (
             SettingsMessage::SettingToggleSessionLogging
             | SettingsMessage::SettingToggleSessionLogFull
@@ -477,3 +476,4 @@ impl Oryxis {
         }
     }
 }
+

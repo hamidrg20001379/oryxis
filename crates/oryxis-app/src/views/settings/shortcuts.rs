@@ -10,26 +10,22 @@ impl Oryxis {
         self.keynav_settings_reset();
         let defaults = default_bindings();
 
-        // Header: hint, the preset selector, then the whole-set buttons
-        // (reset, export, import).
+        // Header: title + hint + global reset button.
         let header = column![
                                 text(crate::i18n::t("hotkey_edit_hint"))
                 .size(11)
                 .color(OryxisColors::t().text_muted),
             Space::new().height(10),
-            self.hotkey_preset_row(),
-            Space::new().height(4),
-            text(crate::i18n::t("hotkey_presets_desc"))
-                .size(11)
-                .color(OryxisColors::t().text_muted),
-            Space::new().height(10),
-            crate::widgets::dir_row(vec![
-                self.hotkey_set_button("hotkey_reset_all", SettingsMessage::ResetAllHotkeys),
-                Space::new().width(8).boxed(),
-                self.hotkey_set_button("hotkey_export", SettingsMessage::ExportHotkeys),
-                Space::new().width(8).boxed(),
-                self.hotkey_set_button("hotkey_import", SettingsMessage::ImportHotkeys),
-            ]),
+            self.settings_nav_slot_labeled(
+                crate::i18n::t("hotkey_reset_all"),
+                crate::keynav::RowAction::activate(Message::Settings(SettingsMessage::ResetAllHotkeys)),
+                6.0,
+                styled_button(
+                    crate::i18n::t("hotkey_reset_all"),
+                    Message::Settings(SettingsMessage::ResetAllHotkeys),
+                    OryxisColors::t().bg_selected,
+                ),
+            ),
             Space::new().height(16),
         ]
         .width(Length::Fill)
@@ -71,6 +67,7 @@ impl Oryxis {
             // chip starts a capture for THAT chord.
             rows_col = rows_col.push(self.hotkey_editor_row(*action, defaults.get(action)));
         }
+        rows_col = rows_col.push(self.shortcut_sequences_section());
 
         scrollable(
             container(rows_col)
@@ -84,52 +81,143 @@ impl Oryxis {
         .boxed()
     }
 
-    /// The preset selector: Oryxis's own, each preset this platform has,
-    /// and "Custom" shown (never offered) once the table is hand-made.
-    fn hotkey_preset_row(&self) -> Element<'_, Message> {
-        use crate::hotkeys::ShortcutPreset;
-        const ORYXIS: &str = "oryxis";
-        const CUSTOM: &str = "custom";
-        let code = |p: &ShortcutPreset| format!("preset:{}", p.name());
-        let mut options = vec![ORYXIS.to_string()];
-        options.extend(ShortcutPreset::available().iter().map(code));
-        let selected = match self.current_hotkey_preset() {
-            Some(None) => ORYXIS.to_string(),
-            Some(Some(p)) => code(&p),
-            None => CUSTOM.to_string(),
-        };
-        self.nav_pick_row(
-            crate::i18n::t("hotkey_presets_label"),
-            options,
-            selected,
-            |c: &String| match c.as_str() {
-                ORYXIS => crate::i18n::t("hotkey_preset_oryxis").to_string(),
-                CUSTOM => crate::i18n::t("hotkey_preset_custom").to_string(),
-                other => other.trim_start_matches("preset:").to_string(),
-            },
-            200.0,
-            |c: String| {
-                let preset = ShortcutPreset::available()
-                    .iter()
-                    .copied()
-                    .find(|p| c == format!("preset:{}", p.name()));
-                Message::Settings(SettingsMessage::HotkeyPresetPicked(preset))
-            },
-        )
+    fn shortcut_sequences_section(&self) -> Element<'_, Message> {
+        let mut content = column![
+            text("Shortcut sequences")
+                .size(13)
+                .color(OryxisColors::t().text_primary),
+            text("Create a shortcut that runs several actions in order.")
+                .size(11)
+                .color(OryxisColors::t().text_muted),
+            Space::new().height(8),
+        ];
+
+        for (index, sequence) in self.shortcut_sequences.iter().enumerate() {
+            let steps = sequence
+                .steps
+                .iter()
+                .map(|action| crate::i18n::t(action.label_key()))
+                .collect::<Vec<_>>()
+                .join(" → ");
+            content = content.push(
+                dir_row(vec![
+                    text(format!("{}: {steps}", sequence.trigger.serialize()))
+                        .size(12)
+                        .color(OryxisColors::t().text_secondary)
+                        .boxed(),
+                    Space::new().width(Length::Fill).boxed(),
+                    styled_button(
+                        "Edit",
+                        Message::Settings(SettingsMessage::ShortcutSequenceEdit(index)),
+                        OryxisColors::t().bg_hover,
+                    ),
+                    Space::new().width(6).boxed(),
+                    styled_button(
+                        "Delete",
+                        Message::Settings(SettingsMessage::ShortcutSequenceDelete(index)),
+                        OryxisColors::t().bg_hover,
+                    ),
+                ])
+                .align_y(iced::Alignment::Center)
+                .boxed(),
+            );
+            content = content.push(Space::new().height(6));
+        }
+
+        if self.shortcut_sequence_form.open {
+            content = content.push(self.shortcut_sequence_editor());
+        } else {
+            content = content.push(styled_button(
+                "Add sequence",
+                Message::Settings(SettingsMessage::ShortcutSequenceNew),
+                OryxisColors::t().bg_selected,
+            ));
+        }
+        container(content)
+            .padding(12)
+            .style(|_| container::Style {
+                background: Some(Background::Color(OryxisColors::t().bg_hover)),
+                border: Border {
+                    radius: Radius::from(6.0),
+                    ..Default::default()
+                },
+                ..Default::default()
+            })
+            .boxed()
     }
 
-    /// One of the whole-set buttons under the preset selector.
-    fn hotkey_set_button(&self, label_key: &'static str, msg: SettingsMessage) -> Element<'_, Message> {
-        self.settings_nav_slot_labeled(
-            crate::i18n::t(label_key),
-            crate::keynav::RowAction::activate(Message::Settings(msg.clone())),
-            6.0,
-            styled_button(
-                crate::i18n::t(label_key),
-                Message::Settings(msg),
-                OryxisColors::t().bg_selected,
-            ),
-        )
+    fn shortcut_sequence_editor(&self) -> Element<'_, Message> {
+        let form = &self.shortcut_sequence_form;
+        let options = crate::hotkeys::HotkeyAction::all()
+            .iter()
+            .filter(|action| !action.widget_dispatched())
+            .map(|action| crate::i18n::t(action.label_key()).to_string())
+            .collect::<Vec<_>>();
+        let selected = form
+            .selected_step
+            .map(|action| crate::i18n::t(action.label_key()).to_string());
+        let mut steps = column![];
+        for (index, action) in form.steps.iter().enumerate() {
+            steps = steps.push(
+                dir_row(vec![
+                    text(format!("{}. {}", index + 1, crate::i18n::t(action.label_key())))
+                        .size(12)
+                        .boxed(),
+                    Space::new().width(Length::Fill).boxed(),
+                    button(text("↑")).on_press(Message::Settings(
+                        SettingsMessage::ShortcutSequenceMoveStep(index, true),
+                    )).boxed(),
+                    button(text("↓")).on_press(Message::Settings(
+                        SettingsMessage::ShortcutSequenceMoveStep(index, false),
+                    )).boxed(),
+                    button(text("×")).on_press(Message::Settings(
+                        SettingsMessage::ShortcutSequenceRemoveStep(index),
+                    )).boxed(),
+                ])
+                .align_y(iced::Alignment::Center)
+                .spacing(4)
+                .boxed(),
+            );
+        }
+        let mut editor = column![
+            text_input("Shortcut, e.g. ctrl+alt+q", &form.trigger)
+                .on_input(|value| Message::Settings(SettingsMessage::ShortcutSequenceTriggerChanged(value)))
+                .padding(8)
+                .style(crate::widgets::rounded_input_style),
+            Space::new().height(8),
+            steps,
+            Space::new().height(8),
+            dir_row(vec![
+                pick_list(selected, options, |value: &String| value.clone())
+                    .on_select(|value| Message::Settings(SettingsMessage::ShortcutSequenceStepPicked(value)))
+                    .padding(8)
+                    .boxed(),
+                styled_button(
+                    "Add step",
+                    Message::Settings(SettingsMessage::ShortcutSequenceAddStep),
+                    OryxisColors::t().bg_hover,
+                ),
+            ]).spacing(8),
+            Space::new().height(8),
+        ];
+        if let Some(error) = &form.error {
+            editor = editor.push(text(error.clone()).size(11).color(OryxisColors::t().error));
+        }
+        editor = editor.push(
+            dir_row(vec![
+                styled_button(
+                    "Save",
+                    Message::Settings(SettingsMessage::ShortcutSequenceSave),
+                    OryxisColors::t().accent,
+                ),
+                styled_button(
+                    "Cancel",
+                    Message::Settings(SettingsMessage::ShortcutSequenceCancelEdit),
+                    OryxisColors::t().bg_hover,
+                ),
+            ]).spacing(8),
+        );
+        editor.boxed()
     }
 
     /// One chord chip in the Shortcuts editor: the badge cluster on a
@@ -390,3 +478,4 @@ fn key_badge_owned(label: String) -> Element<'static, Message> {
         })
         .boxed()
 }
+

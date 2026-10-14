@@ -671,6 +671,8 @@ pub struct Oryxis {
     /// requested rather than resolved on confirm: see
     /// `dispatch_terminal::paste_text_into_tab`.
     pub(crate) pending_paste: Option<(uuid::Uuid, String)>,
+    /// Whether the parked paste should submit a newline after confirmation.
+    pub(crate) pending_paste_execute: bool,
     /// Set alongside `pending_paste` when the parked text is an INSTALL
     /// script (issue #147): `(snippet id, run)`. The confirm then sends
     /// through the snippet injection (newline outside the bracketed
@@ -943,6 +945,9 @@ pub struct Oryxis {
     /// loaded from the settings table. Mutated by the Shortcuts
     /// editor; read on every `KeyboardEvent` in dispatch_terminal.
     pub(crate) hotkey_bindings: crate::hotkeys::HotkeyMap,
+    /// User-authored ordered action lists, edited in Settings → Shortcuts.
+    pub(crate) shortcut_sequences: Vec<crate::hotkeys::ShortcutSequence>,
+    pub(crate) shortcut_sequence_form: crate::hotkeys::ShortcutSequenceForm,
     /// Action currently being re-bound from Settings → Shortcuts.
     /// `Some` puts the keyboard handler in capture mode: the next
     /// KeyPressed becomes the new binding (Esc cancels). `None` is
@@ -1257,9 +1262,6 @@ pub struct Oryxis {
     /// The pending "open this link?" question raised by a Ctrl+click in
     /// a REMOTE pane (`Modal::TerminalLinkConfirm` while `Some`).
     pub(crate) link_confirm: Option<crate::dispatch_terminal::LinkConfirmCard>,
-    /// A pane's buffer waiting for "Save Output As..." to be told where it
-    /// goes (`Modal::TerminalSaveOutput` while `Some`).
-    pub(crate) save_output: Option<crate::dispatch_terminal::SaveOutputCard>,
     /// Monotonic launch counter feeding the generation in
     /// `remote_desktop_forwards`; bumped once per Open.
     pub(crate) remote_desktop_seq: u64,
@@ -1946,3 +1948,4 @@ impl Oryxis {
 #[cfg(test)]
 #[path = "app_tests.rs"]
 mod tests;
+
