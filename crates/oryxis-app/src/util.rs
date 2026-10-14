@@ -109,6 +109,15 @@ pub(crate) fn parse_tags(input: &str) -> Vec<String> {
     out
 }
 
+/// `text` cut to at most `max` characters, with "..." when it was cut.
+/// Counts characters, never bytes: a byte index can fall inside a
+/// multi-byte character (an accent, a CJK glyph) and slicing there panics.
+pub(crate) fn elide_chars(text: &str, max: usize) -> String {
+    let mut chars = text.chars();
+    let head: String = chars.by_ref().take(max).collect();
+    if chars.next().is_some() { format!("{head}...") } else { head }
+}
+
 /// Snippet variable placeholders: `{name}` / `{name:default}` where
 /// `name` starts with a letter or `_` and continues with `[\w-]`.
 /// Deliberately narrow so shell text never trips it: `${VAR}` (the
@@ -1355,6 +1364,17 @@ pub(crate) fn ensure_crypto_provider() {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn elide_chars_cuts_on_characters_not_bytes() {
+        assert_eq!(super::elide_chars("short", 30), "short");
+        // Byte 30 of this falls inside a multi-byte character.
+        let cjk = "部署到生产环境并重启所有服务然后检查日志确认没有错误";
+        let cut = super::elide_chars(cjk, 10);
+        assert_eq!(cut.chars().count(), 13);
+        assert!(cut.ends_with("..."));
+        assert_eq!(super::elide_chars("exactly", 7), "exactly");
+    }
+
     use super::*;
     use std::time::Duration;
 

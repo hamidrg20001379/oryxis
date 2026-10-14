@@ -1025,6 +1025,7 @@ pub(super) fn lookup(key: &str) -> Option<&'static str> {
         "paste_guard_homograph" => "Смешивает похожие символы разных алфавитов",
         "snippet_hotkey_record" => "Записать",
         "snippet_hotkey_in_use" => "Сочетание уже занято",
+        "hotkey_taken_by_snippet" => "Это сочетание сниппета «{name}». Сначала измените его там.",
         "snippet_hotkey_reserved" => "Эта комбинация принадлежит оболочке",
         "snippet_count_other" => "сниппет(ов)",
         "host_tag_filter" => "Фильтр по тегу",

@@ -1243,6 +1243,7 @@ pub(super) fn lookup(key: &str) -> Option<&'static str> {
         "paste_guard_homograph" => "نویسه‌های مشابه از الفباهای مختلف را مخلوط می‌کند",
         "snippet_hotkey_record" => "ضبط",
         "snippet_hotkey_in_use" => "میان‌بر قبلاً استفاده شده",
+        "hotkey_taken_by_snippet" => "این میان‌بر قطعه کد «{name}» است. اول آن را آنجا تغییر دهید.",
         "snippet_hotkey_reserved" => "این ترکیب متعلق به شل است",
         "snippet_count_other" => "قطعه",
         "host_tag_filter" => "فیلتر بر اساس برچسب",

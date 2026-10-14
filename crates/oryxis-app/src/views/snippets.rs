@@ -501,11 +501,7 @@ impl Oryxis {
                     .boxed()
             };
 
-            let cmd_preview = if snip.command.len() > 30 {
-                format!("{}...", &snip.command[..30])
-            } else {
-                snip.command.clone()
-            };
+            let cmd_preview = crate::util::elide_chars(&snip.command, 30);
 
             // Tags read as a compact hashtag line under the preview;
             // display-only (editing stays in the comma field).

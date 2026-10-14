@@ -1025,6 +1025,7 @@ pub(super) fn lookup(key: &str) -> Option<&'static str> {
         "paste_guard_homograph" => "Mischt ähnlich aussehende Zeichen verschiedener Alphabete",
         "snippet_hotkey_record" => "Aufnehmen",
         "snippet_hotkey_in_use" => "Kürzel wird bereits verwendet",
+        "hotkey_taken_by_snippet" => "Das ist das Tastenkürzel des Snippets „{name}“. Ändere es zuerst dort.",
         "snippet_hotkey_reserved" => "Diese Kombination gehört der Shell",
         "snippet_count_other" => "Snippets",
         "host_tag_filter" => "Nach Tag filtern",

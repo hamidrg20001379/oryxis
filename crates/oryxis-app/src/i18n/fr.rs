@@ -1038,6 +1038,7 @@ pub(super) fn lookup(key: &str) -> Option<&'static str> {
         "paste_guard_homograph" => "Mélange des caractères semblables d'alphabets différents",
         "snippet_hotkey_record" => "Enregistrer",
         "snippet_hotkey_in_use" => "Raccourci déjà utilisé",
+        "hotkey_taken_by_snippet" => "C'est le raccourci du snippet « {name} ». Changez-le d'abord là.",
         "snippet_hotkey_reserved" => "Cette combinaison appartient au shell",
         "snippet_count_other" => "snippets",
         "host_tag_filter" => "Filtrer par étiquette",

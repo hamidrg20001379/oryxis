@@ -1247,6 +1247,7 @@ pub(super) fn lookup(key: &str) -> Option<&'static str> {
         "paste_guard_homograph" => "Αναμειγνύει παρόμοιους χαρακτήρες από διαφορετικά αλφάβητα",
         "snippet_hotkey_record" => "Καταγραφή",
         "snippet_hotkey_in_use" => "Η συντόμευση χρησιμοποιείται ήδη",
+        "hotkey_taken_by_snippet" => "Αυτή είναι η συντόμευση του snippet «{name}». Αλλάξτε την εκεί πρώτα.",
         "snippet_hotkey_reserved" => "Αυτός ο συνδυασμός ανήκει στο κέλυφος",
         "snippet_count_other" => "snippets",
         "host_tag_filter" => "Φιλτράρισμα ανά ετικέτα",

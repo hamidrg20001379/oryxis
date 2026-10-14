@@ -1247,6 +1247,7 @@ pub(super) fn lookup(key: &str) -> Option<&'static str> {
         "paste_guard_homograph" => "מערבב תווים דומים למראה מאלפבתים שונים",
         "snippet_hotkey_record" => "הקלטה",
         "snippet_hotkey_in_use" => "קיצור הדרך כבר בשימוש",
+        "hotkey_taken_by_snippet" => "זה קיצור הדרך של קטע הקוד “{name}”. שנו אותו שם קודם.",
         "snippet_hotkey_reserved" => "הצירוף הזה שייך ל-shell",
         "snippet_count_other" => "סניפטים",
         "host_tag_filter" => "סינון לפי תגית",

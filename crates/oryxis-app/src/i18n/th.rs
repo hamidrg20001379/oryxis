@@ -1248,6 +1248,7 @@ pub(super) fn lookup(key: &str) -> Option<&'static str> {
 
         "snippet_hotkey_record" => "บันทึกปุ่ม",
         "snippet_hotkey_in_use" => "ทางลัดนี้ถูกใช้แล้ว",
+        "hotkey_taken_by_snippet" => "นี่คือทางลัดของสนิปเพ็ต “{name}” โปรดเปลี่ยนที่นั่นก่อน",
         "snippet_hotkey_reserved" => "ชุดปุ่มนั้นเป็นของเชลล์",
         "snippet_count_other" => "snippets",
         "host_tag_filter" => "กรองตามแท็ก",

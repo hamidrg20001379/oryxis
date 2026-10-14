@@ -351,6 +351,21 @@ impl Oryxis {
         slot: crate::hotkeys::HotkeySlot,
         new_binding: crate::hotkeys::HotkeyBinding,
     ) -> Task<Message> {
+        // A snippet's own chord is not the editor's to take: the binding
+        // table dispatches first, so taking it would silence the snippet
+        // with no sign of why. The snippet recorder refuses a chord the
+        // table holds; this is the other half. The capture stays armed so
+        // the next keypress can try another chord.
+        if let Some(snippet) = self.snippets.iter().find(|sn| {
+            sn.hotkey
+                .as_deref()
+                .and_then(crate::hotkeys::HotkeyBinding::parse)
+                .is_some_and(|held| held.shares_keypress(&new_binding))
+        }) {
+            let toast = crate::i18n::t("hotkey_taken_by_snippet").replace("{name}", &snippet.label);
+            self.set_toast(toast);
+            return super::toast_clear_after_secs(3);
+        }
         // Conflict resolution: take the chord away from whichever other
         // action holds it, and surface a toast that names *the action*
         // (not the key combo) so the family case reads "Switch to

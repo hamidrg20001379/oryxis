@@ -1038,6 +1038,7 @@ pub(super) fn lookup(key: &str) -> Option<&'static str> {
         "paste_guard_homograph" => "混用不同字母系統的形似字元",
         "snippet_hotkey_record" => "錄製",
         "snippet_hotkey_in_use" => "快速鍵已被佔用",
+        "hotkey_taken_by_snippet" => "這是程式碼片段「{name}」的快速鍵。請先在那裡修改。",
         "snippet_hotkey_reserved" => "該組合鍵屬於 shell",
         "snippet_count_other" => "個片段",
         "host_tag_filter" => "依標籤篩選",

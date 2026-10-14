@@ -1038,6 +1038,7 @@ pub(super) fn lookup(key: &str) -> Option<&'static str> {
         "paste_guard_homograph" => "異なる文字体系の類似文字が混在しています",
         "snippet_hotkey_record" => "記録",
         "snippet_hotkey_in_use" => "ショートカットは使用中です",
+        "hotkey_taken_by_snippet" => "これはスニペット「{name}」のショートカットです。先にそちらで変更してください。",
         "snippet_hotkey_reserved" => "その組み合わせはシェルが使用します",
         "snippet_count_other" => "件のスニペット",
         "host_tag_filter" => "タグで絞り込む",

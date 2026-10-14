@@ -1247,6 +1247,7 @@ pub(super) fn lookup(key: &str) -> Option<&'static str> {
         "paste_guard_homograph" => "अलग-अलग लिपियों के मिलते-जुलते वर्ण मिलाता है",
         "snippet_hotkey_record" => "रिकॉर्ड करें",
         "snippet_hotkey_in_use" => "शॉर्टकट पहले से उपयोग में है",
+        "hotkey_taken_by_snippet" => "यह स्निपेट “{name}” का शॉर्टकट है। पहले उसे वहाँ बदलें।",
         "snippet_hotkey_reserved" => "वह संयोजन शेल का है",
         "snippet_count_other" => "स्निपेट",
         "host_tag_filter" => "टैग से फ़िल्टर करें",

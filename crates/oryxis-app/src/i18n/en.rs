@@ -1248,6 +1248,7 @@ pub(super) fn lookup(key: &str) -> &'static str {
         "paste_guard_homograph" => "Mixes look-alike characters from different alphabets",
         "snippet_hotkey_record" => "Record",
         "snippet_hotkey_in_use" => "Shortcut already in use",
+        "hotkey_taken_by_snippet" => "That is the shortcut of the snippet \"{name}\". Change it there first.",
         "snippet_hotkey_reserved" => "That combination belongs to the shell",
         "snippet_count_other" => "snippets",
         "host_tag_filter" => "Filter by tag",

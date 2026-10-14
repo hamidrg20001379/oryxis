@@ -1038,6 +1038,7 @@ pub(super) fn lookup(key: &str) -> Option<&'static str> {
         "paste_guard_homograph" => "混用不同字母表的形近字符",
         "snippet_hotkey_record" => "录制",
         "snippet_hotkey_in_use" => "快捷键已被占用",
+        "hotkey_taken_by_snippet" => "这是片段“{name}”的快捷键。请先在那里修改。",
         "snippet_hotkey_reserved" => "该组合键属于 shell",
         "snippet_count_other" => "个片段",
         "host_tag_filter" => "按标签筛选",

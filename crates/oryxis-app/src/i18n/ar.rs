@@ -1273,6 +1273,7 @@ pub(super) fn lookup(key: &str) -> Option<&'static str> {
         "paste_guard_homograph" => "يخلط أحرفًا متشابهة من أبجديات مختلفة",
         "snippet_hotkey_record" => "تسجيل",
         "snippet_hotkey_in_use" => "الاختصار مستخدم بالفعل",
+        "hotkey_taken_by_snippet" => "هذا اختصار المقتطف «{name}». غيّره هناك أولًا.",
         "snippet_hotkey_reserved" => "هذه التركيبة تخص الصدفة (shell)",
         "snippet_count_other" => "مقتطفات",
         "host_tag_filter" => "تصفية حسب الوسم",

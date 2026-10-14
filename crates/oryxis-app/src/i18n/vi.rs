@@ -1241,6 +1241,7 @@ pub(super) fn lookup(key: &str) -> Option<&'static str> {
         "paste_guard_homograph" => "Trộn ký tự giống nhau từ các bảng chữ cái khác nhau",
         "snippet_hotkey_record" => "Ghi",
         "snippet_hotkey_in_use" => "Phím tắt đã được dùng",
+        "hotkey_taken_by_snippet" => "Đó là phím tắt của snippet “{name}”. Hãy đổi ở đó trước.",
         "snippet_hotkey_reserved" => "Tổ hợp đó thuộc về shell",
         "snippet_count_other" => "snippet",
         "host_tag_filter" => "Lọc theo thẻ",

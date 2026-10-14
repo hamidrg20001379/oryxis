@@ -1241,6 +1241,7 @@ pub(super) fn lookup(key: &str) -> Option<&'static str> {
         "paste_guard_homograph" => "Mencampur karakter mirip dari alfabet berbeda",
         "snippet_hotkey_record" => "Rekam",
         "snippet_hotkey_in_use" => "Pintasan sudah dipakai",
+        "hotkey_taken_by_snippet" => "Itu pintasan snippet “{name}”. Ubah di sana dulu.",
         "snippet_hotkey_reserved" => "Kombinasi itu milik shell",
         "snippet_count_other" => "snippet",
         "host_tag_filter" => "Saring berdasarkan tag",

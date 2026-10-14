@@ -1251,6 +1251,7 @@ pub(super) fn lookup(key: &str) -> Option<&'static str> {
         "paste_guard_homograph" => "Miesza podobne znaki z różnych alfabetów",
         "snippet_hotkey_record" => "Nagraj",
         "snippet_hotkey_in_use" => "Skrót jest już zajęty",
+        "hotkey_taken_by_snippet" => "To skrót snippetu „{name}”. Najpierw zmień go tam.",
         "snippet_hotkey_reserved" => "Ta kombinacja należy do powłoki",
         "snippet_count_other" => "snippetów",
         "host_tag_filter" => "Filtruj według tagu",

@@ -1031,6 +1031,7 @@ pub(super) fn lookup(key: &str) -> Option<&'static str> {
         "paste_guard_homograph" => "Mezcla caracteres parecidos de alfabetos distintos",
         "snippet_hotkey_record" => "Grabar",
         "snippet_hotkey_in_use" => "El atajo ya está en uso",
+        "hotkey_taken_by_snippet" => "Ese es el atajo del snippet “{name}”. Cámbialo allí primero.",
         "snippet_hotkey_reserved" => "Esa combinación pertenece al shell",
         "snippet_count_other" => "snippets",
         "host_tag_filter" => "Filtrar por etiqueta",

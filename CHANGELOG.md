@@ -25,6 +25,8 @@ project uses [SemVer](https://semver.org/spec/v2.0.0.html).
 - In the SFTP browser, Backspace goes up a folder like Left does, and keys typed into a field (the filter, the path bar) stay in that field: Left in the Local pane's filter no longer sends the pane up a folder, and Ctrl+A selects the field's text instead of every row.
 
 ### Fixed
+- The Snippets view previews every command, accented and CJK text included.
+- Settings > Shortcuts leaves a snippet's shortcut with the snippet: recording it for an action names the snippet that holds it and waits for another key.
 - Enter in the command palette and the tab switcher runs the top row of the list as typed, wherever the mouse rests.
 - An RDP host's saved username and password now reach the desktop client: on Windows, the launch stages them in Credential Manager (`TERMSRV/<host>`, the entry mstsc reads for a saved login) for the client's lifetime and removes them when it exits, never overwriting a credential you saved yourself; on Linux, xfreerdp takes the username and reads the password from a pipe, never from the command line; on macOS, the username rides the `rdp://` URI (the scheme has no password attribute, so Windows App still asks). Before, every launch asked for the password again (#251, reported by @miner1888).
 - Windows: the raw output of the network tools' `ping` and `tracert` (the binaries behind an IPv6 target, or a machine where the native ICMP probe is refused) is read in the console's OEM code page, so a localized line no longer comes out as replacement characters.

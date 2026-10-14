@@ -1247,6 +1247,7 @@ pub(super) fn lookup(key: &str) -> Option<&'static str> {
         "paste_guard_homograph" => "Míchá záměnná písmena z různých abeced",
         "snippet_hotkey_record" => "Nahrát",
         "snippet_hotkey_in_use" => "Zkratka se již používá",
+        "hotkey_taken_by_snippet" => "To je zkratka snippetu „{name}“. Nejprve ji změňte tam.",
         "snippet_hotkey_reserved" => "Tato kombinace patří shellu",
         "snippet_count_other" => "snippetů",
         "host_tag_filter" => "Filtrovat podle štítku",

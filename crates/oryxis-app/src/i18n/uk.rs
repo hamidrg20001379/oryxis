@@ -1241,6 +1241,7 @@ pub(super) fn lookup(key: &str) -> Option<&'static str> {
         "paste_guard_homograph" => "Змішує схожі символи різних абеток",
         "snippet_hotkey_record" => "Записати",
         "snippet_hotkey_in_use" => "Сполучення вже зайняте",
+        "hotkey_taken_by_snippet" => "Це сполучення сніпета «{name}». Спершу змініть його там.",
         "snippet_hotkey_reserved" => "Ця комбінація належить оболонці",
         "snippet_count_other" => "сніпет(ів)",
         "host_tag_filter" => "Фільтр за тегом",

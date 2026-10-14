@@ -1241,6 +1241,7 @@ pub(super) fn lookup(key: &str) -> Option<&'static str> {
         "paste_guard_homograph" => "Farklı alfabelerden benzer karakterleri karıştırıyor",
         "snippet_hotkey_record" => "Kaydet",
         "snippet_hotkey_in_use" => "Kısayol zaten kullanımda",
+        "hotkey_taken_by_snippet" => "Bu, “{name}” snippet'inin kısayolu. Önce orada değiştirin.",
         "snippet_hotkey_reserved" => "Bu kombinasyon kabuğa aittir",
         "snippet_count_other" => "parçacık",
         "host_tag_filter" => "Etikete göre filtrele",

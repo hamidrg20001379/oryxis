@@ -1241,6 +1241,7 @@ pub(super) fn lookup(key: &str) -> Option<&'static str> {
         "paste_guard_homograph" => "서로 다른 문자 체계의 유사 문자가 섞여 있음",
         "snippet_hotkey_record" => "기록",
         "snippet_hotkey_in_use" => "이미 사용 중인 단축키입니다",
+        "hotkey_taken_by_snippet" => "스니펫 “{name}”의 단축키입니다. 먼저 그곳에서 바꾸세요.",
         "snippet_hotkey_reserved" => "해당 조합은 셸에서 사용합니다",
         "snippet_count_other" => "개의 스니펫",
         "host_tag_filter" => "태그로 필터",
