@@ -19,42 +19,42 @@ use uuid::Uuid;
 /// never exposed as a user shortcut and always targets its run's pane.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum SnippetAction {
-    TerminalClearScrollback,
-    TerminalCopyScreen,
-    TerminalCopyLastCommand,
-    TerminalSaveOutput,
-    TerminalPasteAndRun,
+    ClearScrollback,
+    CopyScreen,
+    CopyLastCommand,
+    SaveOutput,
+    PasteAndRun,
 }
 
 impl SnippetAction {
     pub(crate) fn all() -> &'static [Self] {
         use SnippetAction::*;
         &[
-            TerminalClearScrollback,
-            TerminalCopyScreen,
-            TerminalCopyLastCommand,
-            TerminalSaveOutput,
-            TerminalPasteAndRun,
+            ClearScrollback,
+            CopyScreen,
+            CopyLastCommand,
+            SaveOutput,
+            PasteAndRun,
         ]
     }
 
     pub(crate) fn id(self) -> &'static str {
         match self {
-            Self::TerminalClearScrollback => "terminal_clear_scrollback",
-            Self::TerminalCopyScreen => "terminal_copy_screen",
-            Self::TerminalCopyLastCommand => "terminal_copy_last_command",
-            Self::TerminalSaveOutput => "terminal_save_output",
-            Self::TerminalPasteAndRun => "terminal_paste_and_run",
+            Self::ClearScrollback => "terminal_clear_scrollback",
+            Self::CopyScreen => "terminal_copy_screen",
+            Self::CopyLastCommand => "terminal_copy_last_command",
+            Self::SaveOutput => "terminal_save_output",
+            Self::PasteAndRun => "terminal_paste_and_run",
         }
     }
 
     pub(crate) fn label_key(self) -> &'static str {
         match self {
-            Self::TerminalClearScrollback => "terminal_clear_scrollback",
-            Self::TerminalCopyScreen => "terminal_copy_screen",
-            Self::TerminalCopyLastCommand => "terminal_copy_last_command",
-            Self::TerminalSaveOutput => "terminal_save_output",
-            Self::TerminalPasteAndRun => "snippet_run",
+            Self::ClearScrollback => "terminal_clear_scrollback",
+            Self::CopyScreen => "terminal_copy_screen",
+            Self::CopyLastCommand => "terminal_copy_last_command",
+            Self::SaveOutput => "terminal_save_output",
+            Self::PasteAndRun => "snippet_run",
         }
     }
 }
@@ -463,11 +463,11 @@ mod tests {
     fn only_pane_actions_may_run() {
         assert_eq!(
             step_action("terminal_clear_scrollback"),
-            Some(SnippetAction::TerminalClearScrollback)
+            Some(SnippetAction::ClearScrollback)
         );
         assert_eq!(
             step_action("terminal_paste_and_run"),
-            Some(SnippetAction::TerminalPasteAndRun)
+            Some(SnippetAction::PasteAndRun)
         );
         assert_eq!(step_action("lock_vault"), None);
         assert_eq!(step_action("close_all_tabs"), None);

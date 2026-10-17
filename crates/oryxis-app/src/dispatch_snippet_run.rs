@@ -115,15 +115,15 @@ impl Oryxis {
                     };
                     use SnippetAction as A;
                     let msg = match action {
-                        A::TerminalClearScrollback => {
+                        A::ClearScrollback => {
                             TerminalMessage::TerminalClearScrollback(pane_id)
                         }
-                        A::TerminalCopyScreen => TerminalMessage::TerminalCopyScreen(pane_id),
-                        A::TerminalCopyLastCommand => {
+                        A::CopyScreen => TerminalMessage::TerminalCopyScreen(pane_id),
+                        A::CopyLastCommand => {
                             TerminalMessage::TerminalCopyLastCommand(pane_id)
                         }
-                        A::TerminalSaveOutput => TerminalMessage::TerminalSaveOutput(pane_id),
-                        A::TerminalPasteAndRun => {
+                        A::SaveOutput => TerminalMessage::TerminalSaveOutput(pane_id),
+                        A::PasteAndRun => {
                             let task = self.arm_snippet_wait(run_id, RunWait::Clipboard, None);
                             let generation = self
                                 .snippet_runs
@@ -145,7 +145,7 @@ impl Oryxis {
                     // Save Output asks where the text goes: the next
                     // command waits for the answer instead of being
                     // typed under the dialog.
-                    if action == A::TerminalSaveOutput && self.save_output.is_some() {
+                    if action == A::SaveOutput && self.save_output.is_some() {
                         tasks.push(self.arm_snippet_wait(run_id, RunWait::Dialog, None));
                         break;
                     }
@@ -290,10 +290,8 @@ impl Oryxis {
         }) else {
             return Task::none();
         };
-        if execute {
-            if let Some(tab_idx) = self.pane_tab_index(pane_id) {
-                self.write_input_to_tab(tab_idx, b"\n");
-            }
+        if execute && let Some(tab_idx) = self.pane_tab_index(pane_id) {
+            self.write_input_to_tab(tab_idx, b"\n");
         }
         self.resume_snippet_run(run_id)
     }
