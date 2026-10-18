@@ -53,7 +53,7 @@ use crate::app::{TabsMessage, TerminalMessage, Message, Oryxis};
 /// Never the CONTENT: a clipboard carries whatever the user copied last,
 /// and a debug log is the one place a password would end up on disk in
 /// clear. Shape only (character count, line count, bracketed mode).
-fn paste_trace(stage: &str, outcome: &str, text: &str, bracketed: Option<bool>) {
+pub(crate) fn paste_trace(stage: &str, outcome: &str, text: &str, bracketed: Option<bool>) {
     tracing::debug!(
         stage,
         outcome,
@@ -112,17 +112,14 @@ impl Oryxis {
         // careful paste parks multi-line text; the paste guard parks
         // suspicious CONTENT (bidi/invisible chars, raw control bytes,
         // curl|sh one-liners, homograph tokens) even on one line.
-        if (self.prefs.careful_paste
-            && (text.contains('\n') || text.contains('\r')))
-            || (self.prefs.paste_guard
-                && !crate::paste_guard::paste_warnings(text).is_empty())
-        {
+        if crate::paste_guard::needs_confirmation(text, self.prefs.careful_paste, self.prefs.paste_guard) {
             paste_trace("gate", "parked for confirm", text, None);
             self.pending_paste = Some((tab_id, text.to_string()));
             // An ordinary paste park replaces whatever was parked; a
             // stale install marker (issue #147) must not survive to
-            // claim this text's confirm.
+            // claim this text's confirm, nor a snippet's paste step.
             self.pending_paste_install = None;
+            self.pending_paste_snippet = None;
             return;
         }
         self.write_paste_to_tab(tab_id, text);
@@ -1031,6 +1028,12 @@ impl Oryxis {
             // text into the session, or drop it.
             TerminalMessage::ConfirmPendingPaste => {
                 if let Some((tab_id, text)) = self.pending_paste.take() {
+                    // A snippet's paste step: to the run's pane, then the
+                    // run goes on (`confirm_snippet_paste`).
+                    if let Some((run_id, generation)) = self.pending_paste_snippet.take() {
+                        self.pending_paste_install = None;
+                        return self.confirm_snippet_paste(run_id, generation, &text);
+                    }
                     match self.pending_paste_install.take() {
                         // A confirmed INSTALL script (issue #147) sends
                         // through the snippet injection, so Run's
@@ -1045,20 +1048,16 @@ impl Oryxis {
                                 }
                             }
                         }
-                        None => {
-                            self.write_paste_to_tab(tab_id, &text);
-                            return self.finish_snippet_clipboard_paste(tab_id);
-                        }
+                        None => self.write_paste_to_tab(tab_id, &text),
                     }
                 }
             }
             TerminalMessage::CancelPendingPaste => {
-                let tab_id = self.pending_paste.as_ref().map(|(id, _)| *id);
+                // A snippet's paste step left without its marker is
+                // stopped by the run housekeeping, as on Esc.
                 self.pending_paste = None;
                 self.pending_paste_install = None;
-                if let Some(tab_id) = tab_id {
-                    return self.cancel_snippet_clipboard_paste(tab_id);
-                }
+                self.pending_paste_snippet = None;
             }
             // Synthesized input from the terminal widget: mouse-tracking
             // reports (tmux `mouse on`, vim `mouse=a`, htop, ...) and the

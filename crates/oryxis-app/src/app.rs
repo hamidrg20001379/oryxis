@@ -677,6 +677,12 @@ pub struct Oryxis {
     /// paste, so Run actually executes) and records the run into the
     /// host's install memory; an ordinary paste park clears it.
     pub(crate) pending_paste_install: Option<(uuid::Uuid, bool)>,
+    /// Set alongside `pending_paste` when the parked text is a snippet's
+    /// paste step: `(run id, generation)` of the run waiting on it. The
+    /// confirm sends it to the RUN's pane and goes on with the run; any
+    /// other end of the dialog (Cancel, Esc, the lock, another park)
+    /// leaves the run without its marker, and the housekeeping stops it.
+    pub(crate) pending_paste_snippet: Option<(u64, u64)>,
     /// A file row press on its way to becoming an OS drag-out (issue
     /// #167): crossing [`crate::drag_out::DRAG_THRESHOLD`] with the
     /// button held raises the ghost and resolves the payload, leaving

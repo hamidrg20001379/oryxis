@@ -194,6 +194,7 @@ impl Oryxis {
                     self.close_modal(crate::state::Modal::CarefulPaste);
                     self.close_modal(crate::state::Modal::SnippetVars);
                     self.pending_paste_install = None;
+                    self.pending_paste_snippet = None;
                     self.modal_nav_reset();
                     // A master-password candidate typed into the change /
                     // set-password form must not survive the soft lock.
@@ -453,6 +454,7 @@ impl Oryxis {
                         self.close_modal(crate::state::Modal::CarefulPaste);
                         self.close_modal(crate::state::Modal::SnippetVars);
                         self.pending_paste_install = None;
+                        self.pending_paste_snippet = None;
                         self.modal_nav_reset();
                         self.error_dialog = None;
                         self.panels.host_panel = false;

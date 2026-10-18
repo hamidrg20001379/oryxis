@@ -196,11 +196,22 @@ impl Oryxis {
             guard_notes,
         ].boxed();
 
+        // A snippet's paste step (the run and the pane it goes to), when
+        // that is what is parked.
+        let snippet_paste = self.pending_paste_snippet.and_then(|(run_id, _)| {
+            let run = self.snippet_runs.iter().find(|r| r.id == run_id)?;
+            let pane = self.pane_by_id(run.pane_id)?;
+            let host = self.privacy_display_label(&pane.label, &pane.label, &self.privacy_terms());
+            Some(crate::i18n::t("snippet_paste_from").replace("{name}", &run.label).replace("{host}", &host))
+        });
+
         // Broadcast input (C2): when the active tab is armed, this paste fans
         // out to every participating pane. Name the blast radius so the user
-        // confirms with the count in view.
+        // confirms with the count in view. A snippet's paste goes to its
+        // run's pane alone.
         let broadcast_note: Element<'_, Message> = self
             .active_tab
+            .filter(|_| snippet_paste.is_none())
             .and_then(|i| self.tabs.get(i))
             .filter(|t| t.broadcast)
             .map(|t| {
@@ -248,6 +259,8 @@ impl Oryxis {
                         // "pastes some lines").
                         text(crate::i18n::t(if self.pending_paste_install.is_some() {
                             "install_script_title"
+                        } else if snippet_paste.is_some() {
+                            "snippet_paste_title"
                         } else {
                             "careful_paste_title"
                         }))
@@ -260,6 +273,13 @@ impl Oryxis {
                 ])
                 .align_y(iced::Alignment::Center),
                 Space::new().height(6),
+                // Shape-stable: the slot is always there, empty unless a
+                // snippet's paste step is what is parked.
+                text(snippet_paste.unwrap_or_default())
+                    .size(12)
+                    .color(c.text_secondary)
+                    .width(Length::Fill)
+                    .align_x(dir_align_x()),
                 text(crate::i18n::line_count(line_count))
                     .size(12)
                     .color(c.text_muted)
@@ -288,6 +308,7 @@ impl Oryxis {
                                         // Run executes, Paste only types.
                                         Some((_, true)) => "install_script_run",
                                         Some((_, false)) => "careful_paste_confirm",
+                                        None if self.pending_paste_snippet.is_some() => "snippet_paste_confirm",
                                         None => "careful_paste_confirm",
                                     },
                                 ),

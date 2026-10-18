@@ -62,6 +62,7 @@ impl Oryxis {
                     SnippetMessage::SnippetStepFileNameChanged(_, v) => row.file_name = v,
                     SnippetMessage::SnippetStepToggleRegex(_) => row.regex = !row.regex,
                     SnippetMessage::SnippetStepToggleContinue(_) => row.continue_on_error = !row.continue_on_error,
+                    SnippetMessage::SnippetStepTogglePasteConfirm(_) => row.paste_confirm = !row.paste_confirm,
                     SnippetMessage::SnippetStepSaveModePicked(_, mode) => row.file_mode = mode,
                     SnippetMessage::SnippetStepSaveContentPicked(_, content) => row.file_content = content,
                     _ => {}
@@ -123,6 +124,7 @@ fn row_of(message: &SnippetMessage) -> Option<usize> {
         | SnippetMessage::SnippetStepFileNameChanged(i, _)
         | SnippetMessage::SnippetStepToggleRegex(i)
         | SnippetMessage::SnippetStepToggleContinue(i)
+        | SnippetMessage::SnippetStepTogglePasteConfirm(i)
         | SnippetMessage::SnippetStepSaveModePicked(i, _)
         | SnippetMessage::SnippetStepSaveContentPicked(i, _) => Some(*i),
         _ => None,

@@ -223,6 +223,7 @@ impl Oryxis {
             crate::shell_integration::fill_nonce(cmd, &self.shell_integration_nonce);
         self.pending_paste = Some((tab._id, text));
         self.pending_paste_install = Some((snippet_id, run));
+        self.pending_paste_snippet = None;
     }
 
     /// A confirmed install run: write it into the host's install
@@ -313,6 +314,7 @@ impl Oryxis {
             | SnippetMessage::SnippetStepFileNameChanged(..)
             | SnippetMessage::SnippetStepToggleRegex(_)
             | SnippetMessage::SnippetStepToggleContinue(_)
+            | SnippetMessage::SnippetStepTogglePasteConfirm(_)
             | SnippetMessage::SnippetStepSaveModePicked(..)
             | SnippetMessage::SnippetStepSaveContentPicked(..)) => {
                 self.handle_snippet_step_edit(m);
@@ -578,7 +580,7 @@ impl Oryxis {
             }
             m @ (SnippetMessage::SnippetRunTimer(..)
             | SnippetMessage::SnippetRunFileWritten(..)
-            | SnippetMessage::SnippetClipboardResolved(..)
+            | SnippetMessage::SnippetClipboardRead(..)
             | SnippetMessage::CancelSnippetRun(_)) => {
                 return self.handle_snippet_run(m).unwrap_or_else(crate::dispatch::unrouted);
             }

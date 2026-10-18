@@ -437,6 +437,7 @@ impl Oryxis {
                 tab_rename: None,
                 pending_paste: None,
                 pending_paste_install: None,
+                pending_paste_snippet: None,
                 drag_out_arm: None,
                 drag_out_echo: Vec::new(),
                 pending_terminal_drops: Vec::new(),

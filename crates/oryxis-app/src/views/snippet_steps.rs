@@ -216,7 +216,7 @@ impl Oryxis {
                     nav,
                     RowAction::picker(prev, next),
                     crate::widgets::INPUT_RADIUS,
-                    pick_list(row.action, actions, |a: &crate::snippet_run::SnippetAction| t(a.label_key()).to_string())
+                    pick_list(row.action, actions, |a: &crate::hotkeys::HotkeyAction| t(a.label_key()).to_string())
                         .placeholder(t("snippet_step_pick_action"))
                         .on_select(move |a| snip(SnippetMessage::SnippetStepActionPicked(i, a)))
                         .on_open(Message::Navigation(NavigationMessage::PickOpenChanged(true)))
@@ -347,6 +347,15 @@ impl Oryxis {
                 ]
                 .boxed()
             }
+            StepKind::PasteClipboard => column![
+                toggle(t("snippet_step_paste_confirm"), row.paste_confirm, SnippetMessage::SnippetStepTogglePasteConfirm(i)),
+                Space::new().height(6),
+                hint(
+                    t(if row.paste_confirm { "snippet_step_paste_hint_confirm" } else { "snippet_step_paste_hint" })
+                        .to_string(),
+                ),
+            ]
+            .boxed(),
             StepKind::Unknown => text(t("snippet_step_unknown_hint")).size(12).color(c.text_secondary).boxed(),
         }
     }

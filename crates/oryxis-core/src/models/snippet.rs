@@ -127,6 +127,11 @@ pub enum SnippetStep {
     RunSnippet { id: Uuid },
     /// Write the pane's text to a file in the output folder.
     SaveFile(SaveFileStep),
+    /// Paste what the clipboard holds when the step runs and press Enter.
+    /// `confirm` shows the text and asks first; off, the paste goes
+    /// through the same checks as one made by hand (careful paste, paste
+    /// guard). The text is read at the step, never stored in the snippet.
+    PasteClipboard { confirm: bool },
     /// A step this build cannot read, kept verbatim.
     Unknown(serde_json::Value),
 }
@@ -201,6 +206,15 @@ enum KnownStep {
     Wait { wait: SnippetWait },
     RunSnippet { id: Uuid },
     SaveFile { file: SaveFileStep },
+    PasteClipboard {
+        /// Absent reads as asking: the careful answer.
+        #[serde(default = "asks")]
+        confirm: bool,
+    },
+}
+
+fn asks() -> bool {
+    true
 }
 
 impl Serialize for SnippetStep {
@@ -211,6 +225,7 @@ impl Serialize for SnippetStep {
             SnippetStep::Wait(wait) => KnownStep::Wait { wait: wait.clone() },
             SnippetStep::RunSnippet { id } => KnownStep::RunSnippet { id: *id },
             SnippetStep::SaveFile(file) => KnownStep::SaveFile { file: file.clone() },
+            SnippetStep::PasteClipboard { confirm } => KnownStep::PasteClipboard { confirm: *confirm },
             SnippetStep::Unknown(raw) => return raw.serialize(serializer),
         };
         known.serialize(serializer)
@@ -226,6 +241,7 @@ impl<'de> Deserialize<'de> for SnippetStep {
             Ok(KnownStep::Wait { wait }) => SnippetStep::Wait(wait),
             Ok(KnownStep::RunSnippet { id }) => SnippetStep::RunSnippet { id },
             Ok(KnownStep::SaveFile { file }) => SnippetStep::SaveFile(file),
+            Ok(KnownStep::PasteClipboard { confirm }) => SnippetStep::PasteClipboard { confirm },
             Err(_) => SnippetStep::Unknown(raw),
         })
     }
@@ -251,8 +267,18 @@ mod tests {
                 mode: SaveFileMode::Append,
                 content: SaveFileContent::LastCommand,
             }),
+            SnippetStep::PasteClipboard { confirm: true },
+            SnippetStep::PasteClipboard { confirm: false },
             SnippetStep::Command { text: "echo done".into() },
         ]
+    }
+
+    #[test]
+    fn a_paste_step_names_no_text_and_asks_by_default() {
+        let json = serde_json::to_value(SnippetStep::PasteClipboard { confirm: false }).unwrap();
+        assert_eq!(json, serde_json::json!({"kind": "paste_clipboard", "confirm": false}));
+        let bare: SnippetStep = serde_json::from_str(r#"{"kind":"paste_clipboard"}"#).unwrap();
+        assert_eq!(bare, SnippetStep::PasteClipboard { confirm: true });
     }
 
     #[test]
