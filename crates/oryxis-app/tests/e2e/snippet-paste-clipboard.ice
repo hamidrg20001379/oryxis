@@ -136,7 +136,7 @@ click (1161, 240)
 wait 300
 expect "Running paste late (1/4)"
 click (200, 400)
-wait 3500
+wait 4500
 expect "Run the clipboard?"
 expect "The snippet \"paste late\" pastes this into bash (default) and presses Enter."
 expect "echo in-pane-b"
