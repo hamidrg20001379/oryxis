@@ -226,14 +226,28 @@ impl Oryxis {
 
     /// The wait is over: go on with the next step.
     fn resume_snippet_run(&mut self, run_id: u64) -> Task<Message> {
-        if let Some(run) = self.snippet_run_mut(run_id) {
-            run.wait = None;
-            run.timer = None;
-            run.generation += 1;
-            run.sent_commands = 0;
-            run.at_prompt_at_send = false;
-        }
+        self.reset_snippet_run_wait(run_id);
         self.advance_snippet_run(run_id)
+    }
+
+    /// Clear a satisfied wait without advancing yet. Terminal output is
+    /// processed synchronously, but the next action must be dispatched by a
+    /// later message so it reads the fully updated pane state.
+    fn defer_snippet_run_resume(&mut self, run_id: u64) -> Task<Message> {
+        let Some(generation) = self.reset_snippet_run_wait(run_id) else {
+            return Task::none();
+        };
+        Task::done(Message::Snippet(SnippetMessage::SnippetRunContinue(run_id, generation)))
+    }
+
+    fn reset_snippet_run_wait(&mut self, run_id: u64) -> Option<u64> {
+        let run = self.snippet_run_mut(run_id)?;
+        run.wait = None;
+        run.timer = None;
+        run.generation += 1;
+        run.sent_commands = 0;
+        run.at_prompt_at_send = false;
+        Some(run.generation)
     }
 
     /// Type `text` into the run's pane as a command and count it: a
@@ -440,7 +454,9 @@ impl Oryxis {
     /// order, after the emulator processed it. A command-end wait takes
     /// the D of ITS command (`command_end_in`); a failure stops the run
     /// unless the wait says to go on (Ctrl+C on the command is then also
-    /// how a run is stopped).
+    /// how a run is stopped). Successful continuation is posted as a
+    /// message so a following copy/save action reads after this output
+    /// update has fully returned.
     pub(crate) fn snippet_run_marks(&mut self, pane_id: Uuid, marks: &[RunMark]) -> Task<Message> {
         let Some(run) = self.snippet_runs.iter_mut().find(|r| r.pane_id == pane_id) else {
             return Task::none();
@@ -457,7 +473,7 @@ impl Oryxis {
             Some(code) if code != 0 && !continue_on_error => {
                 self.stop_snippet_run(id, "snippet_run_command_failed", Some(&code.to_string()))
             }
-            _ => self.resume_snippet_run(id),
+            _ => self.defer_snippet_run_resume(id),
         }
     }
 
@@ -548,6 +564,13 @@ impl Oryxis {
                     | Some(RunWait::PasteConfirm)
                     | None => Task::none(),
                 })
+            }
+            SnippetMessage::SnippetRunContinue(run_id, generation) => {
+                let current = self
+                    .snippet_runs
+                    .iter()
+                    .any(|r| r.id == run_id && r.generation == generation && r.wait.is_none());
+                Ok(current.then(|| self.advance_snippet_run(run_id)).unwrap_or_else(Task::none))
             }
             SnippetMessage::SnippetRunFileWritten(run_id, generation, outcome) => {
                 let current = self

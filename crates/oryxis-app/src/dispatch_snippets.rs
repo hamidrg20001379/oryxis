@@ -579,6 +579,7 @@ impl Oryxis {
                 self.pending_snippet_vars = None;
             }
             m @ (SnippetMessage::SnippetRunTimer(..)
+            | SnippetMessage::SnippetRunContinue(..)
             | SnippetMessage::SnippetRunFileWritten(..)
             | SnippetMessage::SnippetClipboardRead(..)
             | SnippetMessage::CancelSnippetRun(_)) => {

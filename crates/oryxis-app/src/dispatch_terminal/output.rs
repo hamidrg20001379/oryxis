@@ -1502,7 +1502,9 @@ impl Oryxis {
                 // A run's waits read the batch as drawn: its marks first (a
                 // command-end wait), then its text (an output wait armed
                 // before the batch; one the marks just replaced is not fed
-                // what came before it).
+                // what came before it). Command-end continuation is posted
+                // as a message, so a following copy/save action runs after
+                // this output update has returned.
                 if !run_marks.is_empty() {
                     tasks.push(self.snippet_run_marks(pane_id, &run_marks));
                 }

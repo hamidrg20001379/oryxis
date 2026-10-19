@@ -40,6 +40,10 @@ pub enum SnippetMessage {
     /// over, or a wait with a timeout ran out. An older generation is a
     /// wait that already ended, dropped.
     SnippetRunTimer(u64, u64),
+    /// Continue a run after a command-end mark was handled. Keeping this as
+    /// a message lets the terminal output update finish before the next
+    /// action reads the pane (for example, Copy Screen).
+    SnippetRunContinue(u64, u64),
     /// A save step's write finished (`run id`, `generation`, the path
     /// written or the error).
     SnippetRunFileWritten(u64, u64, Result<String, String>),
